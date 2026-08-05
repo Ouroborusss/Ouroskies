@@ -358,12 +358,15 @@ CLASSES = (OuroSkiesSettings,)
 
 
 def register() -> None:
-    for cls in CLASSES:
-        bpy.utils.register_class(cls)
+    from .registry import register_classes
+
+    register_classes(CLASSES)
     bpy.types.Scene.ouroskies = PointerProperty(type=OuroSkiesSettings)
 
 
 def unregister() -> None:
-    del bpy.types.Scene.ouroskies
-    for cls in reversed(CLASSES):
-        bpy.utils.unregister_class(cls)
+    from .registry import unregister_classes
+
+    if hasattr(bpy.types.Scene, "ouroskies"):
+        del bpy.types.Scene.ouroskies
+    unregister_classes(CLASSES)
