@@ -305,8 +305,16 @@ def _aim_sun_object(obj: bpy.types.Object, direction: Vector) -> None:
 
 
 def resync_all_scenes() -> None:
-    """Re-discover and aim lamps after register / script reload."""
-    for scene in bpy.data.scenes:
+    """Re-discover and aim lamps after register / script reload / file load.
+
+    Safe to call from timers or handlers — no-ops while ``bpy.data`` is restricted
+    (during ``register()``).
+    """
+    try:
+        scenes = bpy.data.scenes
+    except AttributeError:
+        return
+    for scene in scenes:
         if not hasattr(scene, "ouroskies"):
             continue
         try:
