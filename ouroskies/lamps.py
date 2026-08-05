@@ -54,8 +54,26 @@ def _current_sun_alt_az(settings) -> tuple[float, float]:
     return float(settings.sun_elevation_deg), float(settings.sun_azimuth_deg)
 
 
+def evaluate_moon_aim(settings) -> tuple[float, float]:
+    """Moon alt/az for lamps + disk.
+
+    Place/Date uses Meeus ephemeris. Manual uses a full-moon-style opposite-sun
+    path so scrubbing sun elevation walks the moon through a night cycle.
+    """
+    if settings.aim_mode == "MANUAL":
+        sun_el, sun_az = _current_sun_alt_az(settings)
+        moon_el = -sun_el
+        moon_az = (sun_az + 180.0) % 360.0
+        if abs(settings.moon_azimuth_deg - moon_az) > 1e-6:
+            settings.moon_azimuth_deg = moon_az
+        if abs(settings.moon_elevation_deg - moon_el) > 1e-6:
+            settings.moon_elevation_deg = moon_el
+        return moon_el, moon_az
+    return _refresh_moon_from_place(settings)
+
+
 def _refresh_moon_from_place(settings) -> tuple[float, float]:
-    """Moon always follows place/date ephemeris (manual moon pose comes later)."""
+    """Moon from place/date ephemeris."""
     try:
         from .ephemeris_moon import moon_azimuth_elevation
         from .time_util import civil_to_utc
@@ -231,9 +249,12 @@ def remove_lamp(scene: bpy.types.Scene, kind: str) -> bool:
 
 
 def remove_all_owned_lamps(scene: bpy.types.Scene) -> None:
-    """Detach cleanup — only objects tagged as OuroSkies-owned."""
+    """Detach cleanup — owned lamps + moon disk."""
     remove_lamp(scene, LAMP_KIND_SUN)
     remove_lamp(scene, LAMP_KIND_MOON)
+    from . import moon_disk
+
+    moon_disk.remove_moon_disk(scene)
 
 
 def sync_lamps(scene: bpy.types.Scene) -> None:
@@ -266,22 +287,33 @@ def sync_lamps(scene: bpy.types.Scene) -> None:
         sun_obj.hide_render = False
         sun_obj.hide_viewport = False
 
+    moon_el, moon_az = evaluate_moon_aim(settings)
+    moon_factor = _horizon_factor(moon_el)
+
     moon_obj = find_lamp_object(scene, LAMP_KIND_MOON)
     settings.has_moon_lamp = moon_obj is not None
     if moon_obj is not None:
         settings.moon_lamp_name = moon_obj.name
     if moon_obj is not None and moon_obj.data is not None:
-        alt, az = _refresh_moon_from_place(settings)
-        _aim_sun_object(moon_obj, _alt_az_to_direction(alt, az))
+        _aim_sun_object(moon_obj, _alt_az_to_direction(moon_el, moon_az))
         moon_obj.data.color = (
             wb[0] * 0.85,
             wb[1] * 0.92,
             min(1.0, wb[2] * 1.05),
         )
-        factor = _horizon_factor(alt)
-        moon_obj.data.energy = settings.moon_lamp_energy * factor
+        moon_obj.data.energy = settings.moon_lamp_energy * moon_factor
         moon_obj.hide_render = False
         moon_obj.hide_viewport = False
+
+    if settings.is_enabled:
+        from . import moon_disk
+
+        moon_disk.sync_moon_disk(
+            scene,
+            moon_el,
+            moon_az,
+            visible_factor=moon_factor,
+        )
 
     owned_world = None
     if settings.is_enabled:

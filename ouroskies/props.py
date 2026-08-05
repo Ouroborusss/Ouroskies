@@ -330,8 +330,25 @@ class OuroSkiesSettings(PropertyGroup):
         default=False,
         options={"HIDDEN"},
     )
+    has_moon_disk: BoolProperty(
+        name="Has Moon Disk",
+        description="OuroSkies moon disk object is present",
+        default=False,
+        options={"HIDDEN"},
+    )
     sun_lamp_name: StringProperty(default="", options={"HIDDEN"})
     moon_lamp_name: StringProperty(default="", options={"HIDDEN"})
+    moon_disk_name: StringProperty(default="", options={"HIDDEN"})
+    moon_size_deg: FloatProperty(
+        name="Moon Size",
+        description="Apparent moon disk diameter in degrees (artistic; real moon ≈ 0.5°)",
+        default=defaults.MOON_ANGULAR_DIAMETER_DEG,
+        soft_min=0.2,
+        soft_max=5.0,
+        min=0.05,
+        max=20.0,
+        update=_on_looks_update,
+    )
     sun_lamp_energy: FloatProperty(
         name="Sun Strength",
         description="Strength of the synced Sun lamp (Blender Sun light energy)",

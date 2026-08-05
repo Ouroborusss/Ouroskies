@@ -67,6 +67,14 @@ SUN_LAMP_ANGLE_RAD = 0.00918043  # ~0.526° — near solar angular diameter
 LAMP_HORIZON_FADE_DEG = 3.0
 WORLD_SUN_THRESHOLD_DEFAULT = 10.0
 
+# provisional: moon disk object + texture; angular size slightly large for EEVEE readability.
+MOON_DISK_NAME = "OuroSkies Moon Disk"
+MOON_DISK_OWNED_KEY = "ouroskies_moon_disk"
+MOON_DISK_DISTANCE = 1000.0
+MOON_ANGULAR_DIAMETER_DEG = 1.5
+MOON_DISK_EMISSION = 12.0
+MOON_DISK_IMAGE = "moon_disk.png"
+
 WORLD_NAME = "OuroSkies"
 WORLD_OWNED_KEY = "ouroskies_owned"
 NODE_SKY = "OuroSkies Sky"

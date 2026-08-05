@@ -137,7 +137,28 @@ class OUROSKIES_PT_celestials(Panel):
             )
 
         layout.separator()
-        layout.label(text="Secondary sun, moon disk, Sun Punch — later", icon="INFO")
+        layout.label(text="Moon")
+        layout.prop(settings, "moon_size_deg", text="Size")
+        layout.label(
+            text=(
+                f"Moon elev {settings.moon_elevation_deg:.1f}°"
+                f"  az {settings.moon_azimuth_deg:.1f}°"
+            ),
+            icon="INFO",
+        )
+        if settings.aim_mode == "MANUAL":
+            layout.label(
+                text="Manual: moon tracks opposite the sun",
+                icon="INFO",
+            )
+        else:
+            layout.label(
+                text="Place/Date: real moon path (may be down at night)",
+                icon="INFO",
+            )
+
+        layout.separator()
+        layout.label(text="Secondary sun, Sun Punch — later", icon="INFO")
 
 
 class OUROSKIES_PT_eclipse(Panel):

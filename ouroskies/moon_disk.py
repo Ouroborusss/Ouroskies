@@ -1,0 +1,200 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""Visible moon disk — textured plane aimed with moon alt/az."""
+
+from __future__ import annotations
+
+import math
+from pathlib import Path
+
+import bpy
+from mathutils import Vector
+
+from . import defaults
+
+
+def _assets_dir() -> Path:
+    return Path(__file__).resolve().parent / "assets"
+
+
+def _moon_image() -> bpy.types.Image:
+    name = defaults.MOON_DISK_IMAGE
+    existing = bpy.data.images.get(name)
+    if existing is not None:
+        return existing
+    path = _assets_dir() / name
+    image = bpy.data.images.load(str(path), check_existing=True)
+    image.name = name
+    image.alpha_mode = "STRAIGHT"
+    return image
+
+
+def find_moon_disk(scene: bpy.types.Scene) -> bpy.types.Object | None:
+    settings = scene.ouroskies
+    name = settings.moon_disk_name or defaults.MOON_DISK_NAME
+    obj = bpy.data.objects.get(name)
+    if obj is not None and obj.get(defaults.MOON_DISK_OWNED_KEY):
+        return obj
+    for candidate in bpy.data.objects:
+        if candidate.get(defaults.MOON_DISK_OWNED_KEY):
+            return candidate
+    fallback = defaults.MOON_DISK_NAME
+    for candidate in bpy.data.objects:
+        if candidate.name == fallback or candidate.name.startswith(fallback + "."):
+            candidate[defaults.MOON_DISK_OWNED_KEY] = True
+            return candidate
+    return None
+
+
+def _ensure_material() -> bpy.types.Material:
+    mat_name = "OuroSkies Moon Disk"
+    mat = bpy.data.materials.get(mat_name)
+    if mat is None:
+        mat = bpy.data.materials.new(mat_name)
+    mat.use_nodes = True
+    mat.blend_method = "HASHED"
+    if hasattr(mat, "shadow_method"):
+        mat.shadow_method = "NONE"
+    nt = mat.node_tree
+    nt.nodes.clear()
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    out.location = (400, 0)
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    mix.location = (200, 0)
+    trans = nt.nodes.new("ShaderNodeBsdfTransparent")
+    trans.location = (0, -120)
+    emission = nt.nodes.new("ShaderNodeEmission")
+    emission.location = (0, 80)
+    emission.inputs["Strength"].default_value = defaults.MOON_DISK_EMISSION
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.location = (-280, 40)
+    tex.image = _moon_image()
+    nt.links.new(tex.outputs["Color"], emission.inputs["Color"])
+    nt.links.new(tex.outputs["Alpha"], mix.inputs["Fac"])
+    nt.links.new(trans.outputs["BSDF"], mix.inputs[1])
+    nt.links.new(emission.outputs["Emission"], mix.inputs[2])
+    nt.links.new(mix.outputs["Shader"], out.inputs["Surface"])
+    return mat
+
+
+def ensure_moon_disk(scene: bpy.types.Scene) -> bpy.types.Object:
+    existing = find_moon_disk(scene)
+    if existing is not None:
+        return existing
+
+    mesh = bpy.data.meshes.new(defaults.MOON_DISK_NAME)
+    # Unit circle in XY; +Z faces the camera/origin after aim.
+    verts = [(0.0, 0.0, 0.0)]
+    edges = []
+    faces = []
+    segments = 48
+    for i in range(segments):
+        a = (i / segments) * math.tau
+        verts.append((math.cos(a), math.sin(a), 0.0))
+    for i in range(segments):
+        faces.append((0, 1 + i, 1 + ((i + 1) % segments)))
+    mesh.from_pydata(verts, edges, faces)
+    # Simple planar UVs.
+    mesh.uv_layers.new(name="UVMap")
+    uv = mesh.uv_layers.active.data
+    # after from_pydata, loops exist
+    for poly in mesh.polygons:
+        for li in poly.loop_indices:
+            vi = mesh.loops[li].vertex_index
+            co = mesh.vertices[vi].co
+            uv[li].uv = (co.x * 0.5 + 0.5, co.y * 0.5 + 0.5)
+    mesh.update()
+
+    obj = bpy.data.objects.new(defaults.MOON_DISK_NAME, mesh)
+    obj[defaults.MOON_DISK_OWNED_KEY] = True
+    mat = _ensure_material()
+    if mesh.materials:
+        mesh.materials[0] = mat
+    else:
+        mesh.materials.append(mat)
+
+    try:
+        scene.collection.objects.link(obj)
+    except RuntimeError:
+        bpy.context.scene.collection.objects.link(obj)
+
+    scene.ouroskies.moon_disk_name = obj.name
+    scene.ouroskies.has_moon_disk = True
+    return obj
+
+
+def remove_moon_disk(scene: bpy.types.Scene) -> None:
+    obj = find_moon_disk(scene)
+    settings = scene.ouroskies
+    if obj is None:
+        settings.has_moon_disk = False
+        settings.moon_disk_name = ""
+        return
+    mesh = obj.data
+    mats = list(mesh.materials) if mesh is not None else []
+    bpy.data.objects.remove(obj, do_unlink=True)
+    if mesh is not None and mesh.users == 0:
+        bpy.data.meshes.remove(mesh)
+    for mat in mats:
+        if mat is not None and mat.users == 0:
+            bpy.data.materials.remove(mat)
+    settings.has_moon_disk = False
+    settings.moon_disk_name = ""
+
+
+def sync_moon_disk(
+    scene: bpy.types.Scene,
+    altitude_deg: float,
+    azimuth_deg: float,
+    *,
+    visible_factor: float,
+) -> None:
+    """Aim / scale the moon disk. Creates it when OuroSkies is enabled."""
+    settings = scene.ouroskies
+    if not settings.is_enabled:
+        return
+
+    obj = ensure_moon_disk(scene)
+    settings.has_moon_disk = True
+    settings.moon_disk_name = obj.name
+
+    alt = math.radians(altitude_deg)
+    az = math.radians(azimuth_deg)
+    direction = Vector(
+        (
+            math.cos(alt) * math.sin(az),
+            math.cos(alt) * math.cos(az),
+            math.sin(alt),
+        )
+    ).normalized()
+
+    distance = defaults.MOON_DISK_DISTANCE
+    angular = math.radians(max(0.05, float(settings.moon_size_deg)))
+    radius = distance * math.tan(angular * 0.5)
+
+    obj.rotation_mode = "QUATERNION"
+    if obj.parent is not None:
+        obj.parent = None
+    obj.location = direction * distance
+    # Plane +Z toward origin so the textured face is seen from the scene.
+    obj.rotation_quaternion = (-direction).to_track_quat("Z", "Y")
+    obj.scale = (radius, radius, radius)
+
+    hide = visible_factor <= 0.001
+    obj.hide_render = hide
+    obj.hide_viewport = hide
+
+    # Dim emission near the horizon.
+    if obj.data is not None and obj.data.materials:
+        mat = obj.data.materials[0]
+        if mat is not None and mat.node_tree is not None:
+            emission = mat.node_tree.nodes.get("Emission")
+            if emission is None:
+                for node in mat.node_tree.nodes:
+                    if node.type == "EMISSION":
+                        emission = node
+                        break
+            if emission is not None:
+                emission.inputs["Strength"].default_value = (
+                    defaults.MOON_DISK_EMISSION * max(visible_factor, 0.0)
+                )
