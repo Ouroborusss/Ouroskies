@@ -33,6 +33,18 @@ See the [spec](docs/ouroskies-spec.md) for the full contract.
 
 ## Development
 
-Extension code will live under `ouroskies/` (`blender_manifest.toml` + package; Blender `id` = `ouroskies`). No `bl_info`.
+Extension package: [`ouroskies/`](ouroskies/) (`blender_manifest.toml` + `__init__.py`; Blender `id` = `ouroskies`). No `bl_info`.
 
-Smoke-testing happens on a local Blender 5.2 machine (Install from Disk or symlink into the extensions path).
+Offline manifest checklist (no Blender required):
+
+```bash
+python3 tools/offline_validate_extension.py
+```
+
+On a Blender 5.2 machine, also run:
+
+```bash
+cd ouroskies && blender --command extension validate
+```
+
+Smoke-testing: Install from Disk or symlink the `ouroskies/` folder into the extensions path.

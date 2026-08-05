@@ -1,0 +1,17 @@
+schema_version = "1.0.0"
+
+id = "ouroskies"
+version = "0.1.0"
+name = "OuroSkies"
+tagline = "Physically grounded skies for Blender Worlds"
+maintainer = "Ouroborusss <https://github.com/Ouroborusss>"
+type = "add-on"
+website = "https://github.com/Ouroborusss/Ouroskies"
+tags = ["Lighting", "Render"]
+blender_version_min = "5.2.0"
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+copyright = [
+  "2026 Ouroborusss",
+]
