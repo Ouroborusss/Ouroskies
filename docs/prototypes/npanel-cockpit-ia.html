@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PROTOTYPE — OuroSkies N-panel IA</title>
+  <style>
+    :root {
+      --bg: #303030;
+      --panel: #3d3d3d;
+      --panel-2: #383838;
+      --edge: #232323;
+      --text: #e6e6e6;
+      --muted: #9a9a9a;
+      --accent: #5680c2;
+      --input: #1d1d1d;
+      --row: #474747;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 12px/1.35 "Segoe UI", Tahoma, sans-serif;
+      color: var(--text);
+      background:
+        linear-gradient(90deg, #2a2a2a 0 72%, transparent 72%),
+        repeating-linear-gradient(0deg, #2f2f2f 0 24px, #2c2c2c 24px 48px);
+    }
+    .stage {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 0;
+      min-height: 100vh;
+    }
+    .viewport {
+      padding: 28px 32px;
+      color: #bdbdbd;
+    }
+    .viewport h1 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      font-weight: 600;
+      color: #eee;
+    }
+    .viewport p { max-width: 42rem; color: var(--muted); }
+    .badge {
+      display: inline-block;
+      margin-bottom: 12px;
+      padding: 2px 8px;
+      border: 1px solid #666;
+      border-radius: 2px;
+      color: #ccc;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .npanel {
+      background: var(--panel);
+      border-left: 1px solid var(--edge);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+    }
+    .npanel-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      background: var(--panel-2);
+      border-bottom: 1px solid var(--edge);
+      font-weight: 600;
+    }
+    .npanel-body { overflow: auto; flex: 1; padding-bottom: 88px; }
+    .tabs {
+      display: flex;
+      gap: 1px;
+      padding: 4px;
+      background: var(--edge);
+    }
+    .tabs button {
+      flex: 1;
+      border: 0;
+      background: var(--row);
+      color: var(--text);
+      padding: 6px 4px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .tabs button.active { background: var(--accent); }
+    details.section {
+      border-bottom: 1px solid var(--edge);
+      background: var(--panel);
+    }
+    details.section > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 6px 8px;
+      background: #4b4b4b;
+      font-weight: 600;
+      user-select: none;
+    }
+    details.section > summary::-webkit-details-marker { display: none; }
+    details.section > summary::before {
+      content: "▸ ";
+      color: var(--muted);
+    }
+    details.section[open] > summary::before { content: "▾ "; }
+    .rows { padding: 6px 8px 10px; display: grid; gap: 5px; }
+    .row {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      align-items: center;
+      gap: 6px;
+    }
+    .row label { color: var(--muted); }
+    .row input[type="text"],
+    .row input[type="number"],
+    .row select {
+      width: 100%;
+      background: var(--input);
+      border: 1px solid #111;
+      color: var(--text);
+      padding: 3px 5px;
+      border-radius: 2px;
+      font: inherit;
+    }
+    .row input[type="range"] { width: 100%; }
+    .btns { display: flex; flex-wrap: wrap; gap: 4px; }
+    .btns button, .action {
+      background: var(--row);
+      border: 1px solid #222;
+      color: var(--text);
+      padding: 4px 8px;
+      border-radius: 2px;
+      font: inherit;
+      cursor: pointer;
+    }
+    .btns button.primary, .action.primary { background: var(--accent); border-color: #3a5f96; }
+    .hint { color: var(--muted); font-size: 11px; grid-column: 1 / -1; }
+    .sticky-now {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #454545;
+      border-bottom: 1px solid var(--edge);
+      padding: 8px;
+      display: grid;
+      gap: 5px;
+    }
+    .pill-row { display: flex; gap: 4px; flex-wrap: wrap; }
+    .pill {
+      background: #2b2b2b;
+      border: 1px solid #1a1a1a;
+      padding: 2px 6px;
+      border-radius: 10px;
+      color: #ccc;
+      font-size: 11px;
+    }
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+    }
+    .adv {
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px dashed #555;
+    }
+    .variant-only { display: none; }
+    body[data-variant="A"] .variant-A,
+    body[data-variant="B"] .variant-B,
+    body[data-variant="C"] .variant-C { display: block; }
+    .switcher {
+      position: fixed;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(20,20,20,0.92);
+      border: 1px solid #555;
+      border-radius: 8px;
+      z-index: 20;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    }
+    .switcher button {
+      border: 1px solid #666;
+      background: #333;
+      color: #eee;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .switcher button.active { background: var(--accent); border-color: #7aa0d8; }
+    .switcher .meta { color: #aaa; font-size: 11px; max-width: 220px; }
+  </style>
+</head>
+<body data-variant="A">
+  <div class="stage">
+    <div class="viewport">
+      <div class="badge">Throwaway prototype — not the addon</div>
+      <h1>OuroSkies N-panel information architecture</h1>
+      <p>
+        Question: how should cockpit sections be grouped (primary vs advanced) for place/date,
+        atmosphere, suns, moon, stars, lamps, eclipse, and timelapse — without building Blender UI yet.
+      </p>
+      <p id="variant-blurb"></p>
+    </div>
+
+    <aside class="npanel" aria-label="OuroSkies N-panel mock">
+      <div class="npanel-header">OuroSkies</div>
+
+      <!-- Variant A: classic stacked Blender sections -->
+      <div class="npanel-body variant-only variant-A">
+        <div class="rows" style="border-bottom:1px solid var(--edge)">
+          <div class="btns">
+            <button class="primary">Enable Sky</button>
+            <button>Detach</button>
+            <button>Rebuild Graph</button>
+          </div>
+          <div class="hint">Creates/switches to OuroSkies World. Detach restores previous World.</div>
+        </div>
+
+        <details class="section" open>
+          <summary>Place &amp; Time</summary>
+          <div class="rows">
+            <div class="row"><label>Latitude</label><input type="number" value="40.7128" step="0.0001" /></div>
+            <div class="row"><label>Longitude</label><input type="number" value="-74.0060" step="0.0001" /></div>
+            <div class="row"><label>Elevation m</label><input type="number" value="10" step="1" /></div>
+            <div class="row"><label>Date</label><input type="text" value="2026-08-04" /></div>
+            <div class="row"><label>Time</label><input type="text" value="18:30:00" /></div>
+            <div class="row"><label>Timezone</label><select><option>America/New_York</option><option>UTC</option></select></div>
+            <div class="row"><label>Aim</label><select><option>Place/Date</option><option>Manual</option></select></div>
+            <div class="hint">Elevation mirrors Atmosphere → Altitude. Time is animatable for timelapses.</div>
+          </div>
+        </details>
+
+        <details class="section" open>
+          <summary>Atmosphere</summary>
+          <div class="rows">
+            <div class="row"><label>Air</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+            <div class="row"><label>Dust</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+            <div class="row"><label>Ozone</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+            <div class="row"><label>Altitude m</label><input type="range" min="0" max="10000" step="1" value="10" /></div>
+            <div class="row"><label>Sky Strength</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+            <div class="row"><label>Sun Punch</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+            <div class="row"><label>Exposure</label><input type="range" min="-10" max="10" step="0.1" value="0" /></div>
+            <div class="btns">
+              <button class="primary">Physically Accurate</button>
+              <button>Reset Atmosphere</button>
+            </div>
+            <div class="hint">Tooltips explain bindings (Dust → aerosols, etc.). Exposure is convenience only.</div>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Primary Sun</summary>
+          <div class="rows">
+            <div class="row"><label>Sun Size</label><input type="range" min="0.1" max="2" step="0.01" value="0.53" /></div>
+            <div class="row"><label>Manual Elev</label><input type="number" value="15" disabled /></div>
+            <div class="row"><label>Manual Az</label><input type="number" value="270" disabled /></div>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Secondary Sun</summary>
+          <div class="rows">
+            <div class="row"><label>Enable</label><input type="checkbox" /></div>
+            <div class="row"><label>Sun Size</label><input type="range" min="0.1" max="2" step="0.01" value="0.45" /></div>
+            <div class="row"><label>Elev / Az</label><div class="split"><input type="number" value="20" /><input type="number" value="240" /></div></div>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Moon</summary>
+          <div class="rows">
+            <div class="row"><label>Visible</label><input type="checkbox" checked /></div>
+            <div class="row"><label>Size</label><input type="range" min="0.1" max="2" step="0.01" value="0.5" /></div>
+            <div class="row"><label>Tint</label><input type="text" value="warm grey" /></div>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Stars</summary>
+          <div class="rows">
+            <div class="row"><label>Enable</label><input type="checkbox" checked /></div>
+            <div class="row"><label>Density</label><input type="range" min="0" max="1" step="0.01" value="0.6" /></div>
+            <div class="row"><label>Brightness</label><input type="range" min="0" max="1" step="0.01" value="0.7" /></div>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Eclipse Effects</summary>
+          <div class="rows">
+            <div class="row"><label>Effects On</label><input type="checkbox" /></div>
+            <div class="row"><label>Strength</label><input type="range" min="0" max="1" step="0.01" value="0.8" /></div>
+            <div class="row"><label>Corona</label><input type="range" min="0" max="1" step="0.01" value="0.5" /></div>
+            <div class="row"><label>Sky Dim</label><input type="range" min="0" max="1" step="0.01" value="0.6" /></div>
+            <div class="row"><label>Sun Lamp Dim</label><input type="range" min="0" max="1" step="0.01" value="1" /></div>
+            <div class="row"><label>Bailey’s Beads</label><input type="checkbox" /></div>
+            <div class="row"><label>Diamond Ring</label><input type="checkbox" /></div>
+            <div class="hint">Occlusion is automatic. Beads/ring are manual overlays anytime.</div>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Lamps</summary>
+          <div class="rows">
+            <div class="btns">
+              <button class="primary">Add Sun Lamp</button>
+              <button>Remove Sun Lamp</button>
+            </div>
+            <div class="btns">
+              <button class="primary">Add Moon Lamp</button>
+              <button>Remove Moon Lamp</button>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <!-- Variant B: tabs -->
+      <div class="npanel-body variant-only variant-B">
+        <div class="tabs" id="b-tabs">
+          <button class="active" data-tab="time">Time</button>
+          <button data-tab="sky">Sky</button>
+          <button data-tab="bodies">Bodies</button>
+          <button data-tab="fx">FX</button>
+        </div>
+        <div class="rows" data-pane="time">
+          <div class="btns"><button class="primary">Enable Sky</button><button>Detach</button></div>
+          <div class="row"><label>Lat / Lon</label><div class="split"><input type="number" value="40.71" /><input type="number" value="-74.01" /></div></div>
+          <div class="row"><label>Elevation</label><input type="number" value="10" /></div>
+          <div class="row"><label>When</label><input type="text" value="2026-08-04 18:30" /></div>
+          <div class="row"><label>TZ</label><select><option>America/New_York</option><option>UTC</option></select></div>
+          <div class="row"><label>Aim</label><select><option>Place/Date</option><option>Manual</option></select></div>
+          <div class="hint">Timelapse: keyframe When. Place &amp; time are the primary tab.</div>
+        </div>
+        <div class="rows" data-pane="sky" hidden>
+          <div class="row"><label>Air</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+          <div class="row"><label>Dust</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+          <div class="row"><label>Ozone</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+          <div class="row"><label>Altitude</label><input type="range" min="0" max="10000" value="10" /></div>
+          <div class="row"><label>Sky Strength</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+          <div class="row"><label>Sun Punch</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+          <div class="row"><label>Exposure</label><input type="range" min="-10" max="10" step="0.1" value="0" /></div>
+          <div class="btns"><button class="primary">Physically Accurate</button><button>Reset Atmosphere</button></div>
+          <div class="row"><label>Stars</label><input type="range" min="0" max="1" step="0.01" value="0.6" /></div>
+        </div>
+        <div class="rows" data-pane="bodies" hidden>
+          <div class="hint">Primary · Secondary · Moon · Lamps</div>
+          <div class="row"><label>Pri. Size</label><input type="range" min="0.1" max="2" step="0.01" value="0.53" /></div>
+          <div class="row"><label>Sec. Sun</label><input type="checkbox" /> <span class="hint">artist-posed</span></div>
+          <div class="row"><label>Sec. Size</label><input type="range" min="0.1" max="2" step="0.01" value="0.45" /></div>
+          <div class="row"><label>Moon</label><input type="checkbox" checked /></div>
+          <div class="btns"><button class="primary">Add Sun Lamp</button><button>Remove</button></div>
+          <div class="btns"><button class="primary">Add Moon Lamp</button><button>Remove</button></div>
+        </div>
+        <div class="rows" data-pane="fx" hidden>
+          <div class="row"><label>Eclipse FX</label><input type="checkbox" /></div>
+          <div class="row"><label>Strength</label><input type="range" min="0" max="1" step="0.01" value="0.8" /></div>
+          <div class="row"><label>Corona</label><input type="range" min="0" max="1" step="0.01" value="0.5" /></div>
+          <div class="row"><label>Sky Dim</label><input type="range" min="0" max="1" step="0.01" value="0.6" /></div>
+          <div class="row"><label>Lamp Dim</label><input type="range" min="0" max="1" step="0.01" value="1" /></div>
+          <div class="row"><label>Beads</label><input type="checkbox" /></div>
+          <div class="row"><label>Diamond Ring</label><input type="checkbox" /></div>
+          <div class="btns"><button>Rebuild Graph</button></div>
+        </div>
+      </div>
+
+      <!-- Variant C: sticky Now + Looks / Setup -->
+      <div class="npanel-body variant-only variant-C">
+        <div class="sticky-now">
+          <div class="pill-row">
+            <span class="pill">Manual</span>
+            <span class="pill">NYC 40.7°N</span>
+            <span class="pill">18:30</span>
+            <span class="pill">Custom brightness</span>
+          </div>
+          <div class="row"><label>When</label><input type="text" value="2026-08-04 18:30" /></div>
+          <div class="row"><label>Aim</label><select><option selected>Manual</option><option>Place/Date</option></select></div>
+          <div class="btns">
+            <button class="primary">Physically Accurate</button>
+            <button>Enable</button>
+            <button>Detach</button>
+          </div>
+        </div>
+
+        <details class="section" open>
+          <summary>Looks</summary>
+          <div class="rows">
+            <div class="hint">Atmosphere + sky brightness — day-to-day tweaking. Sun Punch lives under Celestials.</div>
+            <div class="row"><label>Air</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+            <div class="row"><label>Dust</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+            <div class="row"><label>Ozone</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+            <div class="row"><label>Altitude</label><input type="range" min="0" max="10000" value="10" /></div>
+            <div class="row"><label>Sky Strength</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+            <div class="row"><label>Exposure</label><input type="range" min="-10" max="10" step="0.1" value="0" /></div>
+            <div class="btns"><button>Reset Atmosphere</button></div>
+            <div class="row"><label>Stars</label><input type="range" min="0" max="1" step="0.01" value="0.6" /></div>
+          </div>
+        </details>
+
+        <details class="section" open>
+          <summary>Celestials</summary>
+          <div class="rows">
+            <div class="row"><label>Primary Size</label><input type="range" min="0.1" max="2" step="0.01" value="0.53" /></div>
+            <div class="row"><label>Sun Punch</label><input type="range" min="0" max="10" step="0.1" value="1" /></div>
+            <div class="row"><label>Manual Elev</label><input type="number" value="15" /></div>
+            <div class="row"><label>Manual Az</label><input type="number" value="270" /></div>
+            <div class="row"><label>Secondary</label><input type="checkbox" /></div>
+            <div class="row"><label>Sec. Size</label><input type="range" min="0.1" max="2" step="0.01" value="0.45" /></div>
+            <div class="row"><label>Moon</label><input type="checkbox" checked /></div>
+          </div>
+        </details>
+
+        <details class="section" open>
+          <summary>Eclipse</summary>
+          <div class="rows">
+            <div class="hint">Occlusion is automatic on overlap. Artistic FX optional; beads/ring manual anytime.</div>
+            <div class="row"><label>Effects On</label><input type="checkbox" /></div>
+            <div class="row"><label>FX Strength</label><input type="range" min="0" max="1" step="0.01" value="0.8" /></div>
+            <div class="row"><label>Corona</label><input type="range" min="0" max="1" step="0.01" value="0.5" /></div>
+            <div class="row"><label>Sky Dim</label><input type="range" min="0" max="1" step="0.01" value="0.6" /></div>
+            <div class="row"><label>Sun Lamp Dim</label><input type="range" min="0" max="1" step="0.01" value="1" /></div>
+            <div class="row"><label>Bailey’s Beads</label><input type="checkbox" /></div>
+            <div class="row"><label>Diamond Ring</label><input type="checkbox" /></div>
+          </div>
+        </details>
+
+        <details class="section">
+          <summary>Setup</summary>
+          <div class="rows">
+            <div class="row"><label>Latitude</label><input type="number" value="40.7128" /></div>
+            <div class="row"><label>Longitude</label><input type="number" value="-74.006" /></div>
+            <div class="row"><label>Elevation</label><input type="number" value="10" /></div>
+            <div class="row"><label>Timezone</label><select><option>America/New_York</option></select></div>
+            <div class="btns">
+              <button class="primary">Add Sun Lamp</button>
+              <button>Remove Sun Lamp</button>
+            </div>
+            <div class="btns">
+              <button class="primary">Add Moon Lamp</button>
+              <button>Remove Moon Lamp</button>
+            </div>
+            <div class="btns"><button>Rebuild Graph</button></div>
+          </div>
+        </details>
+      </div>
+    </aside>
+  </div>
+
+  <div class="switcher">
+    <button type="button" data-v="A" class="active">A Stacked</button>
+    <button type="button" data-v="B">B Tabs</button>
+    <button type="button" data-v="C">C Now+Looks</button>
+    <div class="meta" id="switcher-meta">A — Blender-native accordion sections</div>
+  </div>
+
+  <script>
+    const blurbs = {
+      A: "<strong>Variant A — Stacked sections.</strong> Classic Blender N-panel: Enable/Detach on top, then Place &amp; Time → Atmosphere → suns → moon → stars → eclipse → lamps. Everything visible by scrolling; sections collapse.",
+      B: "<strong>Variant B — Tabs.</strong> Time is primary (timelapse-first). Sky / Bodies / FX are separate. Fewer simultaneous controls; worse for comparing atmosphere vs sun at once.",
+      C: "<strong>Variant C (chosen) — Sticky Now + Looks.</strong> Defaults to <em>Manual</em> aim. Looks = atmosphere/sky/exposure/stars; Celestials includes Sun Punch; Eclipse is its own section; Setup = place/lamps/rebuild."
+    };
+    const meta = {
+      A: "A — Blender-native accordion sections",
+      B: "B — Time-first tabs",
+      C: "C — chosen: Manual default, Sun Punch in Celestials, Eclipse section"
+    };
+    function setVariant(v) {
+      document.body.dataset.variant = v;
+      document.getElementById("variant-blurb").innerHTML = blurbs[v];
+      document.getElementById("switcher-meta").textContent = meta[v];
+      document.querySelectorAll(".switcher button[data-v]").forEach((b) => {
+        b.classList.toggle("active", b.dataset.v === v);
+      });
+      const url = new URL(location.href);
+      url.searchParams.set("variant", v);
+      history.replaceState(null, "", url);
+    }
+    document.querySelectorAll(".switcher button[data-v]").forEach((b) => {
+      b.addEventListener("click", () => setVariant(b.dataset.v));
+    });
+    document.querySelectorAll("#b-tabs button").forEach((b) => {
+      b.addEventListener("click", () => {
+        document.querySelectorAll("#b-tabs button").forEach((x) => x.classList.remove("active"));
+        b.classList.add("active");
+        document.querySelectorAll(".variant-B [data-pane]").forEach((p) => {
+          p.hidden = p.dataset.pane !== b.dataset.tab;
+        });
+      });
+    });
+    setVariant(new URL(location.href).searchParams.get("variant") || "C");
+  </script>
+</body>
+</html>

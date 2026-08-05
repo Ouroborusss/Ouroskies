@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PROTOTYPE — OuroSkies procedural stars</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #05070c;
+      color: #e8e8e8;
+      font: 14px/1.4 "Segoe UI", system-ui, sans-serif;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+    .hud {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      max-width: min(420px, calc(100vw - 32px));
+      padding: 12px 14px;
+      background: rgba(8, 10, 16, 0.78);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 6px;
+      backdrop-filter: blur(6px);
+    }
+    .hud .badge {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #9aa3b5;
+      margin-bottom: 6px;
+    }
+    .hud h1 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .hud p { margin: 0; color: #b7bfcc; font-size: 13px; }
+    .switcher {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(12, 14, 20, 0.92);
+      border: 1px solid #4a5160;
+      border-radius: 8px;
+      z-index: 5;
+    }
+    .switcher button {
+      border: 1px solid #5a6478;
+      background: #222836;
+      color: #eee;
+      padding: 7px 11px;
+      border-radius: 4px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .switcher button.active {
+      background: #3d5f8f;
+      border-color: #7ea0d0;
+    }
+    .switcher .meta { color: #9aa3b5; font-size: 12px; max-width: 240px; }
+    .sliders {
+      position: fixed;
+      right: 16px;
+      bottom: 18px;
+      padding: 10px 12px;
+      background: rgba(12, 14, 20, 0.9);
+      border: 1px solid #4a5160;
+      border-radius: 8px;
+      display: grid;
+      gap: 6px;
+      min-width: 200px;
+      font-size: 12px;
+      color: #c5ccd8;
+    }
+    .sliders label { display: grid; grid-template-columns: 72px 1fr; gap: 8px; align-items: center; }
+    .sliders input { width: 100%; }
+  </style>
+</head>
+<body>
+  <!--
+    PROTOTYPE: Three look targets for procedural night stars (not catalog-accurate).
+    Question: density, magnitude curve, tint, twinkle, Milky-Way band?
+  -->
+  <canvas id="sky"></canvas>
+  <div class="hud">
+    <div class="badge">Throwaway prototype — look targets only</div>
+    <h1 id="title">A — Sparse cinematic</h1>
+    <p id="blurb"></p>
+  </div>
+  <div class="switcher">
+    <button type="button" data-v="A" class="active">A Sparse</button>
+    <button type="button" data-v="B">B Dense</button>
+    <button type="button" data-v="C">C Band</button>
+    <div class="meta" id="meta">Looks over accuracy · World overlay target</div>
+  </div>
+  <div class="sliders">
+    <div style="color:#9aa3b5;margin-bottom:2px">Preview only (not final knobs)</div>
+    <label>Day fade <input id="day" type="range" min="0" max="1" step="0.01" value="0" /></label>
+    <label>Brightness <input id="bri" type="range" min="0.2" max="2" step="0.01" value="1" /></label>
+    <label style="grid-template-columns: 1fr auto;"><span>Milky band</span> <input id="band" type="checkbox" checked /></label>
+  </div>
+  <script>
+    const canvas = document.getElementById("sky");
+    const ctx = canvas.getContext("2d");
+    let w = 0, h = 0, dpr = 1;
+    let stars = [];
+    let variant = "A";
+    let t0 = performance.now();
+
+    const LOOKS = {
+      A: {
+        title: "A — Sparse cinematic",
+        blurb: "Few bright points, steep magnitude curve, cool white, no twinkle, no Milky Way. Clean night plates / hero skies.",
+        count: 280,
+        brightFrac: 0.04,
+        sizeMin: 0.6,
+        sizeMax: 2.8,
+        tint: "cool",
+        twinkle: 0,
+        band: false,
+        densityPow: 2.4
+      },
+      B: {
+        title: "B — Dense glitter",
+        blurb: "High density, soft magnitude falloff, mixed cool/warm tints, light twinkle. Busy night / fantasy look.",
+        count: 2200,
+        brightFrac: 0.02,
+        sizeMin: 0.4,
+        sizeMax: 2.2,
+        tint: "mixed",
+        twinkle: 0.35,
+        band: false,
+        densityPow: 1.55
+      },
+      C: {
+        title: "C — Milky-Way band (chosen direction)",
+        blurb: "Medium star field + optional soft galactic band (togglable). Slight warm tint; no twinkle by default. Band is a look, not a catalog.",
+        count: 1100,
+        brightFrac: 0.03,
+        sizeMin: 0.45,
+        sizeMax: 2.4,
+        tint: "warmish",
+        twinkle: 0,
+        band: true,
+        densityPow: 1.9
+      }
+    };
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = w + "px";
+      canvas.style.height = h + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      rebuild();
+    }
+
+    function hash(i) {
+      let x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+      return x - Math.floor(x);
+    }
+
+    function starColor(kind, u) {
+      if (kind === "cool") {
+        return `rgb(${210 + u * 30},${220 + u * 25},${255})`;
+      }
+      if (kind === "warmish") {
+        const r = 235 + u * 20, g = 220 + u * 20, b = 210 + u * 35;
+        return `rgb(${r|0},${g|0},${b|0})`;
+      }
+      // mixed
+      if (u < 0.55) return `rgb(220,230,255)`;
+      if (u < 0.8) return `rgb(255,236,210)`;
+      return `rgb(200,220,255)`;
+    }
+
+    function rebuild() {
+      const L = LOOKS[variant];
+      stars = [];
+      for (let i = 0; i < L.count; i++) {
+        const u = hash(i + 1);
+        const v = hash(i + 99);
+        const mag = Math.pow(u, L.densityPow); // 0 faint .. 1 bright-ish
+        const isBright = v < L.brightFrac;
+        const size = isBright
+          ? L.sizeMax * (0.7 + hash(i + 3) * 0.3)
+          : L.sizeMin + mag * (L.sizeMax * 0.55 - L.sizeMin);
+        stars.push({
+          x: hash(i + 7) * w,
+          y: hash(i + 13) * h * 0.92,
+          size,
+          a: isBright ? 0.95 : 0.15 + mag * 0.7,
+          color: starColor(L.tint, hash(i + 21)),
+          phase: hash(i + 33) * Math.PI * 2,
+          tw: 0.5 + hash(i + 41) * 0.5
+        });
+      }
+    }
+
+    function drawBand(alpha) {
+      // Soft galactic ribbon: stamp glow along a shallow diagonal,
+      // fade before the horizon so nothing hard-clips at an odd angle.
+      const x0 = -w * 0.05, y0 = h * 0.22;
+      const x1 = w * 1.05, y1 = h * 0.58;
+      const dx = x1 - x0, dy = y1 - y0;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len, ny = dx / len; // unit perpendicular
+      const halfW = h * 0.11;
+      const steps = Math.max(48, Math.floor(len / 18));
+
+      ctx.save();
+      for (let i = 0; i <= steps; i++) {
+        const u = i / steps;
+        const x = x0 + dx * u;
+        const y = y0 + dy * u;
+        // Horizon soft kill — band dies out before bottom edge
+        const horizonFade = Math.max(0, Math.min(1, (0.78 * h - y) / (0.18 * h)));
+        if (horizonFade <= 0.01) continue;
+        // Slightly thicker / brighter in the middle of the arc
+        const along = 1 - Math.abs(u - 0.5) * 1.4;
+        const core = Math.max(0.25, along);
+        const r = halfW * (0.85 + core * 0.55);
+        const a = alpha * horizonFade * (0.045 + core * 0.07);
+        const grd = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grd.addColorStop(0, `rgba(210,195,175,${a})`);
+        grd.addColorStop(0.35, `rgba(140,145,190,${a * 0.55})`);
+        grd.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Sparse brighter clumps along the same path (no hard rect)
+      for (let i = 0; i < 28; i++) {
+        const u = 0.08 + hash(i + 200) * 0.84;
+        const x = x0 + dx * u + nx * (hash(i + 250) - 0.5) * halfW * 0.6;
+        const y = y0 + dy * u + ny * (hash(i + 260) - 0.5) * halfW * 0.6;
+        const horizonFade = Math.max(0, Math.min(1, (0.78 * h - y) / (0.18 * h)));
+        if (horizonFade <= 0.01) continue;
+        const r = 18 + hash(i + 400) * 55;
+        const a = alpha * horizonFade * (0.03 + hash(i + 410) * 0.04);
+        const grd = ctx.createRadialGradient(x, y, 0, x, y, r);
+        grd.addColorStop(0, `rgba(220,205,180,${a})`);
+        grd.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function frame(now) {
+      const L = LOOKS[variant];
+      const day = +document.getElementById("day").value;
+      const bri = +document.getElementById("bri").value;
+      const bandOn = document.getElementById("band").checked;
+      const starAlpha = Math.max(0, 1 - day * 1.15) * bri;
+
+      // sky background (night → dawn wash)
+      const top = `rgb(${8 + day * 40},${10 + day * 55},${18 + day * 90})`;
+      const bot = `rgb(${4 + day * 70},${6 + day * 45},${12 + day * 35})`;
+      const bg = ctx.createLinearGradient(0, 0, 0, h);
+      bg.addColorStop(0, top);
+      bg.addColorStop(1, bot);
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+
+      if (bandOn && starAlpha > 0.02) drawBand(starAlpha);
+
+      const t = (now - t0) / 1000;
+      for (const s of stars) {
+        let a = s.a * starAlpha;
+        if (L.twinkle > 0) {
+          a *= 1 - L.twinkle * 0.5 + L.twinkle * 0.5 * Math.sin(t * 2.2 * s.tw + s.phase);
+        }
+        if (a <= 0.01) continue;
+        ctx.beginPath();
+        ctx.fillStyle = s.color;
+        ctx.globalAlpha = Math.min(1, a);
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+        if (s.size > 1.8) {
+          ctx.globalAlpha = Math.min(1, a * 0.35);
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.size * 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(frame);
+    }
+
+    function setVariant(v) {
+      variant = v;
+      document.getElementById("title").textContent = LOOKS[v].title;
+      document.getElementById("blurb").textContent = LOOKS[v].blurb;
+      document.getElementById("band").checked = !!LOOKS[v].band;
+      document.querySelectorAll(".switcher button[data-v]").forEach((b) => {
+        b.classList.toggle("active", b.dataset.v === v);
+      });
+      const url = new URL(location.href);
+      url.searchParams.set("variant", v);
+      history.replaceState(null, "", url);
+      rebuild();
+    }
+
+    document.querySelectorAll(".switcher button[data-v]").forEach((b) => {
+      b.addEventListener("click", () => setVariant(b.dataset.v));
+    });
+    window.addEventListener("resize", resize);
+    resize();
+    setVariant(new URL(location.href).searchParams.get("variant") || "C");
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
