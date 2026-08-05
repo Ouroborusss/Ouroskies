@@ -20,7 +20,9 @@ def _load_post_resync(_dummy) -> None:
 def _deferred_resync() -> None:
     """One-shot timer — ``bpy.data`` is restricted inside ``register()``."""
     from . import lamps
+    from .time_util import _ensure_tzdata
 
+    _ensure_tzdata()
     lamps.resync_all_scenes()
     return None
 

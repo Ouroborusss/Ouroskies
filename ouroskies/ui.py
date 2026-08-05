@@ -204,6 +204,13 @@ class OUROSKIES_PT_setup(Panel):
         layout.prop(settings, "longitude")
         layout.prop(settings, "altitude")
         layout.prop(settings, "timezone")
+        from .time_util import last_timezone_error
+
+        tz_err = last_timezone_error()
+        if tz_err:
+            layout.label(text=tz_err, icon="ERROR")
+        else:
+            layout.label(text="Example: America/Chicago  (Enter to apply)", icon="INFO")
 
         layout.separator()
         layout.label(text="Lamps")

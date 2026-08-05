@@ -39,6 +39,14 @@ def _on_aim_update(self, context) -> None:
 
 def _on_place_date_update(self, context) -> None:
     from . import lamps, looks, place_date
+    from .time_util import last_timezone_error, normalize_timezone_name, zoneinfo_for
+
+    # Canonicalize IANA casing / spaces (ZoneInfo is case-sensitive).
+    canonical = normalize_timezone_name(self.timezone)
+    zoneinfo_for(self.timezone)
+    if not last_timezone_error() and self.timezone != canonical:
+        self.timezone = canonical
+        return
 
     place_date.evaluate(context.scene)
     looks.sync_looks(context.scene)
@@ -137,7 +145,10 @@ class OuroSkiesSettings(PropertyGroup):
     )
     timezone: StringProperty(
         name="Timezone",
-        description="IANA timezone id for civil date/time (e.g. America/New_York, UTC)",
+        description=(
+            "IANA timezone id (e.g. America/Chicago, Europe/London, UTC). "
+            "Case-insensitive; press Enter after editing"
+        ),
         default=defaults.PLACE_TIMEZONE,
         update=_on_place_date_update,
     )
