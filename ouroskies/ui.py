@@ -119,7 +119,9 @@ class OUROSKIES_PT_celestials(Panel):
         layout = self.layout
         settings = _settings(context)
 
-        layout.label(text="Primary sun (Manual aim)")
+        layout.label(text="Primary sun")
+        layout.prop(settings, "sun_size_deg", text="Sun Size")
+        layout.prop(settings, "sun_punch", text="Sun Punch")
         col = layout.column(align=True)
         col.enabled = settings.aim_mode == "MANUAL"
         col.prop(settings, "sun_elevation_deg", text="Elevation")
@@ -148,6 +150,20 @@ class OUROSKIES_PT_celestials(Panel):
             )
 
         layout.separator()
+        layout.prop(settings, "secondary_sun_enabled", text="Binary Sun")
+        if settings.secondary_sun_enabled:
+            col = layout.column(align=True)
+            col.prop(settings, "secondary_sun_separation_deg", text="Separation")
+            col.prop(settings, "secondary_sun_angle_deg", text="Orbit Angle")
+            col.prop(settings, "secondary_sun_size_deg", text="Size")
+            col.prop(settings, "secondary_sun_strength", text="Strength")
+            layout.prop(settings, "secondary_sun_color", text="Color")
+            layout.label(
+                text="World sky look only — no lamp",
+                icon="INFO",
+            )
+
+        layout.separator()
         layout.label(text="Moon")
         layout.prop(settings, "moon_size_deg", text="Size")
         layout.label(
@@ -167,9 +183,6 @@ class OUROSKIES_PT_celestials(Panel):
                 text="Place/Date: real moon path (may be down at night)",
                 icon="INFO",
             )
-
-        layout.separator()
-        layout.label(text="Secondary sun, Sun Punch — later", icon="INFO")
 
 
 class OUROSKIES_PT_eclipse(Panel):

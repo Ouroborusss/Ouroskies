@@ -6,7 +6,7 @@
 **Map:** `.scratch/ouroskies-spec/map.md`  
 **Glossary:** [`CONTEXT.md`](../CONTEXT.md)
 
-This document is the destination artifact of the wayfinder planning map. It locks decisions so implementation can start cold. It does **not** ship the addon. Open numeric defaults and deferred fog are listed in §13.
+This document is the destination artifact of the wayfinder planning map. It locks decisions so implementation can start cold. It does **not** ship the addon. Open numeric defaults and deferred detail are listed in §13.
 
 ---
 
@@ -37,7 +37,8 @@ Use [`CONTEXT.md`](../CONTEXT.md) as the ubiquitous language. Spec text prefers 
 - Optional synced sun/moon lamps (Add/Remove)
 - Looks: Sky Strength, World Contribution, Exposure, White Balance, Airglow
 - Physically Accurate brightness preset + Reset Atmosphere
-- N-panel cockpit (Variant C IA)
+- Distance Haze: non-volume aerial perspective on meshes via node group + baked sky EXR sequence (not volumetric fog)
+- N-panel cockpit (Variant C IA + Haze section)
 - Blender Extension packaging (zip + remote repo)
 
 ### Out of scope
@@ -110,7 +111,7 @@ Research: [`docs/research/extension-packaging-and-remote-repos.md`](research/ext
 |---|---|
 | **Scene PropertyGroup** | Source of truth for all cockpit settings |
 | **Python** | Place/date evaluation (any place/time, animatable), aim writes, lamp Add/Remove + sync, authoring OuroSkies World, Rebuild Sky Graph, Detach |
-| **World graph** | Multiple Scattering evaluation + overlay shading (disks, stars, Milky band, eclipse mixes, airglow). No astronomy math in nodes; no per-frame node rebuilds |
+| **World graph** | Multiple Scattering evaluation + overlay shading (binary sun, stars, Milky band, eclipse mixes, airglow). Moon disk is a synced mesh object, not a World overlay. No astronomy math in nodes; no per-frame node rebuilds |
 
 ### World lifecycle
 
@@ -183,13 +184,14 @@ Always **Multiple Scattering** in-cockpit; legacy sky models / raw node edits = 
 
 ### Primary / secondary sun
 
-- Sun Size for both under Celestials  
-- Sun Punch under Celestials  
+- **Sun Size** (primary) under Celestials → Sky Texture `sun_size`; EEVEE → synced Sun lamp Angle when present  
+- **Sun Punch** under Celestials → Cycles `sun_intensity`; EEVEE → multiplies synced Sun lamp Strength when present  
 - Manual elev/az when Aim = Manual  
+- **Binary sun** (secondary): World-shader disk only (no lamp / mesh). Toggle; parented to primary via **angular separation** + **orbit angle** (0° toward zenith from the sun, eastward). Own Size / Strength / Color (warm default). Camera-path look; does not drive GI  
 
 ### Moon
 
-- Disk in World shader; place/date or manual  
+- Textured **mesh disk** aimed with place/date or Manual (Manual = antipode of sun)  
 - During solar occultation: **dark silhouette** (new-moon face), not normal phase shading  
 - Optional moon lamp for fill  
 
@@ -245,15 +247,16 @@ Prototype: [`docs/prototypes/npanel-cockpit-ia.html`](prototypes/npanel-cockpit-
 
 1. **Sticky Now** — place/time readout, Aim (default Manual), Aim refraction, Physically Accurate, Enable, Detach  
 2. **Looks** — Air, Dust, Ozone, Altitude, Sky Strength, World Contribution, Exposure, WB (+ presets), Airglow (+ tint), Reset Atmosphere, Stars (+ Milky band)  
-3. **Celestials** — primary/secondary sizes, Sun Punch, manual elev/az, moon  
+3. **Celestials** — Sun Size, Sun Punch, Manual elev/az, Binary Sun (sep/orbit/size/strength/color), moon size  
 4. **Eclipse** — Effects On, Strength, Corona, Sky Dim, Sun Lamp Dim, beads, diamond ring  
-5. **Setup** — lat/lon/elevation/timezone, Add/Remove lamps, Rebuild Graph  
+5. **Haze** — Distance Haze bake/cache (frame range, path, equirect|strip, dirty warning, Add Distance Haze); per-material Near/Far/Opacity on the node group  
+6. **Setup** — lat/lon/elevation/timezone, Add/Remove lamps, Rebuild Graph  
 
 End-user descriptions/tooltips on controls.
 
 ---
 
-## 13. Open numeric defaults & deferred fog
+## 13. Open numeric defaults & deferred detail
 
 Fill during implementation or a short follow-up; not product-scope forks:
 
@@ -265,7 +268,7 @@ Fill during implementation or a short follow-up; not product-scope forks:
 - Previous-World snapshot strategy if user deletes it while active  
 - Daylight star fade curve  
 - Star Density/Brightness defaults; Milky band node recipe  
-- Horizon / ground / non-volume aerial perspective (if any)  
+- Distance Haze bake numerics (Near/Far defaults, equirect resolution, strip elevation band, spatial blur radius) — product shape locked on impl map tickets 16–18  
 - Filmic/AgX notes beyond Exposure convenience  
 - Multi-World / linked-scene behavior  
 - Performance budgets  

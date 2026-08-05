@@ -54,9 +54,10 @@ def apply_settings_to_sky(
     settings: bpy.types.PropertyGroup,
 ) -> None:
     """Push atmosphere + current aim mode onto a Sky Texture node."""
-    from . import aim
+    from . import aim, celestials
 
     apply_atmosphere_to_sky(sky, settings)
+    celestials.apply_sun_size_punch_to_sky(sky, settings)
     if settings.aim_mode == "MANUAL":
         aim.apply_manual_aim_to_sky(sky, settings)
 
@@ -150,7 +151,10 @@ def rebuild_sky_graph(world: bpy.types.World, settings: bpy.types.PropertyGroup)
     links.new(wb_color.outputs["Color"], wb_mix.inputs["B"])
     # Prefer typed Color sockets when present (Blender 4+/5 Mix node).
     result = wb_mix.outputs.get("Result_Color") or wb_mix.outputs.get("Result")
-    links.new(result, bg_cam.inputs["Color"])
+    # Camera path gets binary-sun overlay; GI path stays WB sky only.
+    from . import celestials
+
+    celestials.wire_binary_sun_nodes(node_tree, result, bg_cam)
     links.new(result, bg_light.inputs["Color"])
     links.new(light_path.outputs["Is Camera Ray"], mix_cam.inputs["Factor"])
     links.new(bg_light.outputs["Background"], mix_cam.inputs[1])
@@ -165,6 +169,7 @@ def rebuild_sky_graph(world: bpy.types.World, settings: bpy.types.PropertyGroup)
     sky.texture_mapping.rotation = (0.0, 0.0, 0.0)
 
     looks.sync_looks_to_world(settings, world)
+    celestials.sync_binary_sun_to_world(settings, world)
 
 
 def _unique_world_name() -> str:
@@ -205,6 +210,9 @@ def enable(scene: bpy.types.Scene) -> bpy.types.World:
             from . import place_date
 
             place_date.evaluate(scene)
+        from . import celestials
+
+        celestials.sync_celestials(scene)
         lamps.sync_lamps(scene)
         return existing
 
@@ -223,8 +231,9 @@ def enable(scene: bpy.types.Scene) -> bpy.types.World:
         from . import place_date
 
         place_date.evaluate(scene)
-    from . import lamps
+    from . import celestials, lamps
 
+    celestials.sync_celestials(scene)
     lamps.sync_lamps(scene)
     return world
 
@@ -277,6 +286,11 @@ def rebuild(scene: bpy.types.Scene) -> bool:
         from . import place_date
 
         place_date.evaluate(scene)
+    from . import celestials, lamps, looks
+
+    looks.sync_looks(scene)
+    celestials.sync_celestials(scene)
+    lamps.sync_lamps(scene)
     return True
 
 

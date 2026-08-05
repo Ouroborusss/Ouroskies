@@ -17,12 +17,12 @@ The main solar disk in the World sky, whose direction is driven by place/date (o
 _Avoid_: the sun (when binary mode is on), sun lamp (that's a lamp)
 
 **Secondary sun**:
-An artist-posed second sun disk (and optional lamp) for dual-star looks — not real binary orbital mechanics. Size/intensity live with sun controls alongside the primary.
-_Avoid_: binary star, companion star (astronomy sense)
+An artist-posed second sun disk in the World sky (binary look), parented to the primary via angular separation + orbit angle — not real binary orbital mechanics. World-shader overlay only (no second lamp / mesh). Size, strength, and color live under Celestials.
+_Avoid_: binary star, companion star (astronomy sense); second sun lamp
 
 **Moon disk**:
-The moon appearance in the World sky (phase, size, tint, position).
-_Avoid_: moon (when meaning the lamp)
+A textured mesh disk the extension aims with the moon (Manual antipode or place/date). Size lives under Celestials; optional moon lamp for fill. Not a World-shader overlay.
+_Avoid_: moon (when meaning the lamp); World-node moon
 
 **Sun lamp / Moon lamp**:
 Optional Blender lights the extension creates and aims in sync with the World sky disks.
@@ -83,6 +83,10 @@ _Avoid_: silent uninstall with orphaned drivers; mass-deleting unmarked lights
 **Dust**:
 OuroSkies N-panel label for Sky Texture `aerosol_density` (haze / pollution / water droplets). End-user descriptions explain the binding.
 _Avoid_: Aerosols (Blender RNA name — OK in tooltips), turbidity
+
+**Distance Haze**:
+Non-volume aerial perspective on scene meshes: a material node group that keeps surfaces opaque and blends toward a **baked** sky color (atmosphere + white balance EXR sequence, sampled by view direction) by camera distance. Cockpit **Haze** section owns bake/cache; Near/Far/Opacity live on the group. Not volumetric fog.
+_Avoid_: Transparent mix for strength, live Sky Texture in every material, World Volume fog
 
 **Eclipse look**:
 A timed, arc-correct sun/moon overlap presentation: geometric disk occlusion always; optional artistic Eclipse Effects (corona, sky dim, sun-lamp dim, Bailey’s beads, diamond ring) that may be faked. Does not drive the Exposure convenience slider.

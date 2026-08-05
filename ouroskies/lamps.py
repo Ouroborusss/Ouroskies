@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import math
+
 import bpy
 from mathutils import Vector
 
@@ -280,7 +282,13 @@ def sync_lamps(scene: bpy.types.Scene) -> None:
     if sun_obj is not None and sun_obj.data is not None:
         _aim_sun_object(sun_obj, sun_direction)
         sun_obj.data.color = wb
-        sun_obj.data.energy = settings.sun_lamp_energy * sun_factor
+        # Sun Punch remaps lamp Strength; Sun Size soft-controls Angle (EEVEE).
+        punch = max(0.0, float(settings.sun_punch))
+        sun_obj.data.energy = settings.sun_lamp_energy * punch * sun_factor
+        sun_obj.data.angle = max(
+            0.0,
+            math.radians(max(0.01, float(settings.sun_size_deg))),
+        )
         sun_obj.hide_render = False
         sun_obj.hide_viewport = False
 
@@ -307,6 +315,9 @@ def sync_lamps(scene: bpy.types.Scene) -> None:
             moon_direction,
             visible_factor=moon_factor,
         )
+        from . import celestials
+
+        celestials.sync_celestials(scene)
 
     owned_world = None
     if settings.is_enabled:

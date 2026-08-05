@@ -26,7 +26,7 @@ Offline Install from Disk does not receive remote updates. Packaging and remote-
 
 ## Scope (short)
 
-**In:** Nishita-class Multiple Scattering World sky, place/date or Manual aim, secondary artist-posed sun, moon disk, procedural stars, optional synced lamps, eclipse looks.  
+**In:** Nishita-class Multiple Scattering World sky, place/date or Manual aim, secondary artist-posed sun, moon disk, procedural stars, optional synced lamps, eclipse looks, Distance Haze (baked non-volume aerial perspective).  
 **Out:** Clouds, volumetric fog, planets, reverse-engineering paid addons.
 
 See the [spec](docs/ouroskies-spec.md) for the full contract.

@@ -74,6 +74,18 @@ MOON_ANGULAR_DIAMETER_DEG = 1.5
 MOON_DISK_EMISSION = 12.0
 MOON_DISK_IMAGE = "moon_disk.png"
 
+# provisional: near Blender Multiple Scattering sun_size (~0.545°) and unity punch.
+SUN_SIZE_DEG = 0.545
+SUN_PUNCH = 1.0
+
+# provisional: binary sun parented to primary — World look only (no lamp / mesh).
+SECONDARY_SUN_ENABLED = False
+SECONDARY_SUN_SEPARATION_DEG = 5.0
+SECONDARY_SUN_ANGLE_DEG = 0.0
+SECONDARY_SUN_SIZE_DEG = 0.545
+SECONDARY_SUN_STRENGTH = 12.0
+SECONDARY_SUN_COLOR = (1.0, 0.82, 0.55, 1.0)
+
 WORLD_NAME = "OuroSkies"
 WORLD_OWNED_KEY = "ouroskies_owned"
 NODE_SKY = "OuroSkies Sky"
@@ -87,5 +99,17 @@ NODE_AIRGLOW_COLOR = "OuroSkies Airglow Color"
 NODE_BG_AIRGLOW = "OuroSkies BG Airglow"
 NODE_ADD_AIRGLOW = "OuroSkies Add Airglow"
 NODE_OUTPUT = "OuroSkies Output"
+# Binary (secondary) sun — camera-path World overlay
+NODE_SEC_GEO = "OuroSkies Sec Geo"
+NODE_SEC_VIEW = "OuroSkies Sec View"
+NODE_SEC_DIR = "OuroSkies Sec Dir"
+NODE_SEC_DOT = "OuroSkies Sec Dot"
+NODE_SEC_ACOS = "OuroSkies Sec Acos"
+NODE_SEC_RADIUS = "OuroSkies Sec Radius"
+NODE_SEC_MAP = "OuroSkies Sec Map"
+NODE_SEC_COLOR = "OuroSkies Sec Color"
+NODE_SEC_STRENGTH = "OuroSkies Sec Strength"
+NODE_SEC_MUL = "OuroSkies Sec Mul"
+NODE_SEC_ADD = "OuroSkies Sec Add"
 # Back-compat alias used by older comments
 NODE_BACKGROUND = NODE_BG_CAMERA

@@ -30,15 +30,16 @@ def _on_atmosphere_update(self, context) -> None:
 
 
 def _on_aim_update(self, context) -> None:
-    from . import aim, lamps, looks
+    from . import aim, celestials, lamps, looks
 
     aim.sync_aim(context.scene)
     looks.sync_looks(context.scene)
+    celestials.sync_celestials(context.scene)
     lamps.sync_lamps(context.scene)
 
 
 def _on_place_date_update(self, context) -> None:
-    from . import lamps, looks, place_date
+    from . import celestials, lamps, looks, place_date
     from .time_util import last_timezone_error, normalize_timezone_name, zoneinfo_for
 
     # Canonicalize IANA casing / spaces (ZoneInfo is case-sensitive).
@@ -50,13 +51,22 @@ def _on_place_date_update(self, context) -> None:
 
     place_date.evaluate(context.scene)
     looks.sync_looks(context.scene)
+    celestials.sync_celestials(context.scene)
     lamps.sync_lamps(context.scene)
 
 
 def _on_looks_update(self, context) -> None:
-    from . import lamps, looks
+    from . import celestials, lamps, looks
 
     looks.sync_looks(context.scene)
+    celestials.sync_celestials(context.scene)
+    lamps.sync_lamps(context.scene)
+
+
+def _on_celestials_update(self, context) -> None:
+    from . import celestials, lamps
+
+    celestials.sync_celestials(context.scene)
     lamps.sync_lamps(context.scene)
 
 
@@ -218,13 +228,13 @@ class OuroSkiesSettings(PropertyGroup):
     )
     moon_elevation_deg: FloatProperty(
         name="Moon Elevation",
-        description="Evaluated moon altitude (degrees) — disk overlay later",
+        description="Moon altitude in degrees (Place/Date ephemeris, or Manual antipode of sun)",
         default=0.0,
         options={"HIDDEN"},
     )
     moon_azimuth_deg: FloatProperty(
         name="Moon Azimuth",
-        description="Evaluated moon azimuth (degrees) — disk overlay later",
+        description="Moon azimuth in degrees (Place/Date ephemeris, or Manual antipode of sun)",
         default=0.0,
         options={"HIDDEN"},
     )
@@ -362,6 +372,91 @@ class OuroSkiesSettings(PropertyGroup):
         min=0.05,
         max=20.0,
         update=_on_looks_update,
+    )
+    sun_size_deg: FloatProperty(
+        name="Sun Size",
+        description=(
+            "Primary sun angular diameter in degrees. Cycles: Sky Texture sun_size; "
+            "EEVEE: synced Sun lamp Angle when present"
+        ),
+        default=defaults.SUN_SIZE_DEG,
+        soft_min=0.1,
+        soft_max=5.0,
+        min=0.01,
+        max=30.0,
+        update=_on_celestials_update,
+    )
+    sun_punch: FloatProperty(
+        name="Sun Punch",
+        description=(
+            "Primary sun disk punch. Cycles: Sky Texture sun_intensity; "
+            "EEVEE: multiplies synced Sun lamp Strength when present"
+        ),
+        default=defaults.SUN_PUNCH,
+        soft_min=0.0,
+        soft_max=10.0,
+        min=0.0,
+        max=1000.0,
+        update=_on_celestials_update,
+    )
+    secondary_sun_enabled: BoolProperty(
+        name="Binary Sun",
+        description="Show artist-posed secondary sun disk in the World sky (no lamp)",
+        default=defaults.SECONDARY_SUN_ENABLED,
+        update=_on_celestials_update,
+    )
+    secondary_sun_separation_deg: FloatProperty(
+        name="Separation",
+        description="Angular distance of the binary sun from the primary (degrees on the sky)",
+        default=defaults.SECONDARY_SUN_SEPARATION_DEG,
+        soft_min=0.0,
+        soft_max=45.0,
+        min=0.0,
+        max=180.0,
+        update=_on_celestials_update,
+    )
+    secondary_sun_angle_deg: FloatProperty(
+        name="Orbit Angle",
+        description=(
+            "Position angle of the binary sun around the primary. "
+            "0° toward zenith from the sun, increasing eastward"
+        ),
+        default=defaults.SECONDARY_SUN_ANGLE_DEG,
+        soft_min=-180.0,
+        soft_max=180.0,
+        min=-360.0,
+        max=360.0,
+        update=_on_celestials_update,
+    )
+    secondary_sun_size_deg: FloatProperty(
+        name="Binary Size",
+        description="Binary sun angular diameter in degrees (World overlay)",
+        default=defaults.SECONDARY_SUN_SIZE_DEG,
+        soft_min=0.1,
+        soft_max=5.0,
+        min=0.01,
+        max=30.0,
+        update=_on_celestials_update,
+    )
+    secondary_sun_strength: FloatProperty(
+        name="Binary Strength",
+        description="Binary sun disk strength in the World sky (camera path)",
+        default=defaults.SECONDARY_SUN_STRENGTH,
+        soft_min=0.0,
+        soft_max=50.0,
+        min=0.0,
+        max=1000.0,
+        update=_on_celestials_update,
+    )
+    secondary_sun_color: FloatVectorProperty(
+        name="Binary Color",
+        description="Binary sun disk color (World overlay only; primary uses Sky + White Balance)",
+        subtype="COLOR",
+        size=4,
+        min=0.0,
+        max=1.0,
+        default=defaults.SECONDARY_SUN_COLOR,
+        update=_on_celestials_update,
     )
     sun_lamp_energy: FloatProperty(
         name="Sun Strength",

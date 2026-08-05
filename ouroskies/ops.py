@@ -77,7 +77,7 @@ class OUROSKIES_OT_reset_sun_position(Operator):
 
     bl_idname = "ouroskies.reset_sun_position"
     bl_label = "Reset Sun Position"
-    bl_description = "Restore default Manual sun elevation and azimuth (15° / 90° east)"
+    bl_description = "Restore default Manual sun elevation and azimuth (0° / 90° east)"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
