@@ -39,9 +39,20 @@ class OUROSKIES_PT_now(Panel):
         status.label(text=settings.status_place, icon="WORLD")
         status.label(text=settings.status_when, icon="TIME")
 
-        layout.prop(settings, "status_when", text="When")
         layout.prop(settings, "aim_mode", text="Aim")
         layout.prop(settings, "aim_refraction", text="Refraction")
+        if settings.aim_mode == "PLACE_DATE" and settings.refraction_diverges:
+            layout.label(
+                text="Apparent ≠ Geometric near horizon",
+                icon="INFO",
+            )
+
+        if settings.aim_mode == "PLACE_DATE":
+            row = layout.row(align=True)
+            row.prop(settings, "year", text="")
+            row.prop(settings, "month", text="")
+            row.prop(settings, "day", text="")
+            layout.prop(settings, "time_hours", text="Time (h)")
 
         row = layout.row(align=True)
         row.operator("ouroskies.physically_accurate", text="Physically Accurate")
@@ -85,8 +96,24 @@ class OUROSKIES_PT_celestials(Panel):
 
     def draw(self, context):
         layout = self.layout
-        layout.label(text="Suns, moon, Sun Punch, manual elev/az — stub")
-        layout.label(text="Controls land with later tickets", icon="INFO")
+        settings = _settings(context)
+
+        layout.label(text="Primary sun (Manual aim)")
+        col = layout.column(align=True)
+        col.enabled = settings.aim_mode == "MANUAL"
+        col.prop(settings, "sun_elevation_deg", text="Elevation")
+        col.prop(settings, "sun_azimuth_deg", text="Azimuth")
+        if settings.aim_mode == "PLACE_DATE":
+            layout.label(
+                text=(
+                    f"Place/Date sun  elev {settings.evaluated_sun_elevation_deg:.1f}°"
+                    f"  az {settings.evaluated_sun_azimuth_deg:.1f}°"
+                ),
+                icon="INFO",
+            )
+
+        layout.separator()
+        layout.label(text="Secondary sun, moon disk, Sun Punch — later", icon="INFO")
 
 
 class OUROSKIES_PT_eclipse(Panel):
@@ -115,9 +142,18 @@ class OUROSKIES_PT_setup(Panel):
 
     def draw(self, context):
         layout = self.layout
+        settings = _settings(context)
+
+        layout.label(text="Place")
+        layout.prop(settings, "latitude")
+        layout.prop(settings, "longitude")
+        layout.prop(settings, "altitude")
+        layout.prop(settings, "timezone")
+
+        layout.separator()
         layout.operator("ouroskies.rebuild_sky_graph", text="Rebuild Sky Graph")
         layout.separator()
-        layout.label(text="Place & lamps — later", icon="INFO")
+        layout.label(text="Lamps — later", icon="INFO")
 
 
 CLASSES = (

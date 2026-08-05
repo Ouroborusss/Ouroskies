@@ -9,6 +9,7 @@ from bpy.props import (
     BoolProperty,
     EnumProperty,
     FloatProperty,
+    IntProperty,
     PointerProperty,
     StringProperty,
 )
@@ -21,6 +22,22 @@ def _on_atmosphere_update(self, context) -> None:
     from . import world
 
     world.sync_atmosphere(context.scene)
+    if self.aim_mode == "PLACE_DATE":
+        from . import place_date
+
+        place_date.evaluate(context.scene)
+
+
+def _on_aim_update(self, context) -> None:
+    from . import aim
+
+    aim.sync_aim(context.scene)
+
+
+def _on_place_date_update(self, context) -> None:
+    from . import place_date
+
+    place_date.evaluate(context.scene)
 
 
 class OuroSkiesSettings(PropertyGroup):
@@ -47,6 +64,7 @@ class OuroSkiesSettings(PropertyGroup):
             ("PLACE_DATE", "Place/Date", "Driven by place, date, and time"),
         ),
         default="MANUAL",
+        update=_on_aim_update,
     )
 
     aim_refraction: EnumProperty(
@@ -57,20 +75,136 @@ class OuroSkiesSettings(PropertyGroup):
             ("GEOMETRIC", "Geometric", "True geometric direction"),
         ),
         default="APPARENT",
+        update=_on_place_date_update,
+    )
+
+    sun_elevation_deg: FloatProperty(
+        name="Sun Elevation",
+        description="Primary sun altitude above the horizon in degrees (Manual aim). +Z up",
+        default=defaults.MANUAL_SUN_ELEVATION_DEG,
+        soft_min=-90.0,
+        soft_max=90.0,
+        min=-90.0,
+        max=90.0,
+        update=_on_aim_update,
+    )
+    sun_azimuth_deg: FloatProperty(
+        name="Sun Azimuth",
+        description="Primary sun azimuth in degrees eastward from north (Manual aim). +Y north, +X east",
+        default=defaults.MANUAL_SUN_AZIMUTH_DEG,
+        soft_min=0.0,
+        soft_max=360.0,
+        min=-360.0,
+        max=720.0,
+        update=_on_aim_update,
+    )
+
+    # Place / date (civil UI). Canonical evaluation is UTC via zoneinfo.
+    latitude: FloatProperty(
+        name="Latitude",
+        description="Observer latitude in degrees (north positive)",
+        default=defaults.PLACE_LATITUDE,
+        soft_min=-90.0,
+        soft_max=90.0,
+        min=-90.0,
+        max=90.0,
+        update=_on_place_date_update,
+    )
+    longitude: FloatProperty(
+        name="Longitude",
+        description="Observer longitude in degrees (east positive)",
+        default=defaults.PLACE_LONGITUDE,
+        soft_min=-180.0,
+        soft_max=180.0,
+        min=-180.0,
+        max=180.0,
+        update=_on_place_date_update,
+    )
+    timezone: StringProperty(
+        name="Timezone",
+        description="IANA timezone id for civil date/time (e.g. America/New_York, UTC)",
+        default=defaults.PLACE_TIMEZONE,
+        update=_on_place_date_update,
+    )
+    year: IntProperty(
+        name="Year",
+        description="Civil year in the chosen timezone (animatable)",
+        default=defaults.PLACE_YEAR,
+        min=1,
+        max=9999,
+        update=_on_place_date_update,
+    )
+    month: IntProperty(
+        name="Month",
+        description="Civil month 1–12 (animatable)",
+        default=defaults.PLACE_MONTH,
+        min=1,
+        max=12,
+        update=_on_place_date_update,
+    )
+    day: IntProperty(
+        name="Day",
+        description="Civil day of month (animatable)",
+        default=defaults.PLACE_DAY,
+        min=1,
+        max=31,
+        update=_on_place_date_update,
+    )
+    time_hours: FloatProperty(
+        name="Time",
+        description="Civil time of day in hours (0–24, animatable; supports fractional minutes)",
+        default=defaults.PLACE_TIME_HOURS,
+        soft_min=0.0,
+        soft_max=24.0,
+        min=-24.0,
+        max=48.0,
+        update=_on_place_date_update,
     )
 
     status_place: StringProperty(
         name="Place",
-        description="Place readout (filled when Place/Date aiming lands)",
+        description="Place readout",
         default="—",
     )
     status_when: StringProperty(
         name="When",
-        description="Date/time readout (filled when Place/Date aiming lands)",
+        description="Date/time readout",
         default="—",
+    )
+    refraction_diverges: BoolProperty(
+        name="Refraction Divergence",
+        description="Apparent and Geometric sun elevation differ near the horizon",
+        default=False,
+        options={"HIDDEN"},
+    )
+
+    evaluated_sun_elevation_deg: FloatProperty(
+        name="Evaluated Sun Elevation",
+        description="Last place/date sun elevation (degrees)",
+        default=0.0,
+        options={"HIDDEN"},
+    )
+    evaluated_sun_azimuth_deg: FloatProperty(
+        name="Evaluated Sun Azimuth",
+        description="Last place/date sun azimuth (degrees)",
+        default=0.0,
+        options={"HIDDEN"},
+    )
+    moon_elevation_deg: FloatProperty(
+        name="Moon Elevation",
+        description="Evaluated moon altitude (degrees) — disk overlay later",
+        default=0.0,
+        options={"HIDDEN"},
+    )
+    moon_azimuth_deg: FloatProperty(
+        name="Moon Azimuth",
+        description="Evaluated moon azimuth (degrees) — disk overlay later",
+        default=0.0,
+        options={"HIDDEN"},
     )
 
     # Atmosphere — soft UI 0–10; type-beyond OK. Defaults are provisional.
+    # Altitude is also observer height for place/date (mirrored in Setup).
     air: FloatProperty(
         name="Air",
         description="Air molecules (Sky Texture air_density). Soft range 0–10",
@@ -103,7 +237,7 @@ class OuroSkiesSettings(PropertyGroup):
     )
     altitude: FloatProperty(
         name="Altitude",
-        description="Observer altitude in meters (Sky Texture altitude). Mirrored in Setup later",
+        description="Observer / Sky Texture altitude in meters (Looks + Setup)",
         default=defaults.ATMOSPHERE["altitude"],
         soft_min=0.0,
         soft_max=10000.0,

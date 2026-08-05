@@ -4,16 +4,18 @@
 
 from __future__ import annotations
 
-from . import ops, props, ui
+from . import ops, place_date, props, ui
 
 
 def register() -> None:
     props.register()
     ops.register()
     ui.register()
+    place_date.register_handlers()
 
 
 def unregister() -> None:
+    place_date.unregister_handlers()
     ui.unregister()
     ops.unregister()
     props.unregister()

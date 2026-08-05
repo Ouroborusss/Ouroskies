@@ -10,7 +10,10 @@ from . import defaults
 
 
 def stop_handlers() -> None:
-    """Stop per-frame / depsgraph handlers. None registered yet."""
+    """Frame handler stays registered; place/date evaluate no-ops when disabled."""
+    from . import place_date
+
+    place_date.stop_handlers()
 
 
 def find_ouroskies_world(scene: bpy.types.Scene) -> bpy.types.World | None:
@@ -46,6 +49,18 @@ def apply_atmosphere_to_sky(
     sky.altitude = settings.altitude
 
 
+def apply_settings_to_sky(
+    sky: bpy.types.ShaderNodeTexSky,
+    settings: bpy.types.PropertyGroup,
+) -> None:
+    """Push atmosphere + current aim mode onto a Sky Texture node."""
+    from . import aim
+
+    apply_atmosphere_to_sky(sky, settings)
+    if settings.aim_mode == "MANUAL":
+        aim.apply_manual_aim_to_sky(sky, settings)
+
+
 def sync_atmosphere(scene: bpy.types.Scene) -> None:
     """Push Scene atmosphere props onto the active OuroSkies Sky Texture."""
     settings = scene.ouroskies
@@ -71,7 +86,7 @@ def rebuild_sky_graph(world: bpy.types.World, settings: bpy.types.PropertyGroup)
     sky.label = defaults.NODE_SKY
     sky.location = (-300.0, 0.0)
     sky.sky_type = "MULTIPLE_SCATTERING"
-    apply_atmosphere_to_sky(sky, settings)
+    apply_settings_to_sky(sky, settings)
 
     background = node_tree.nodes.new("ShaderNodeBackground")
     background.name = defaults.NODE_BACKGROUND
@@ -118,6 +133,10 @@ def enable(scene: bpy.types.Scene) -> bpy.types.World:
     existing = find_ouroskies_world(scene)
     if settings.is_enabled and existing is not None and scene.world == existing:
         rebuild_sky_graph(existing, settings)
+        if settings.aim_mode == "PLACE_DATE":
+            from . import place_date
+
+            place_date.evaluate(scene)
         return existing
 
     previous = scene.world
@@ -128,6 +147,10 @@ def enable(scene: bpy.types.Scene) -> bpy.types.World:
     rebuild_sky_graph(world, settings)
     scene.world = world
     settings.is_enabled = True
+    if settings.aim_mode == "PLACE_DATE":
+        from . import place_date
+
+        place_date.evaluate(scene)
     return world
 
 
@@ -171,6 +194,10 @@ def rebuild(scene: bpy.types.Scene) -> bool:
     rebuild_sky_graph(world, settings)
     if scene.world != world:
         scene.world = world
+    if settings.aim_mode == "PLACE_DATE":
+        from . import place_date
+
+        place_date.evaluate(scene)
     return True
 
 
