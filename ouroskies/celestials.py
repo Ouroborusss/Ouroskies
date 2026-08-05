@@ -63,9 +63,65 @@ def apply_sun_size_punch_to_sky(
 
 
 def _set_combine_xyz(node, direction: Vector) -> None:
-    node.inputs[0].default_value = float(direction.x)
-    node.inputs[1].default_value = float(direction.y)
-    node.inputs[2].default_value = float(direction.z)
+    # Prefer named sockets — Combine XYZ is X/Y/Z (not a Vector in).
+    for key, component in (("X", direction.x), ("Y", direction.y), ("Z", direction.z)):
+        socket = node.inputs.get(key)
+        if socket is not None:
+            socket.default_value = float(component)
+            continue
+        # Fallback by index if names differ.
+        idx = {"X": 0, "Y": 1, "Z": 2}[key]
+        if len(node.inputs) > idx:
+            node.inputs[idx].default_value = float(component)
+
+
+def _set_value_output(node, value: float) -> None:
+    """ShaderNodeValue stores its constant on the output socket (no inputs)."""
+    if node is None or not node.outputs:
+        return
+    node.outputs[0].default_value = float(value)
+
+
+def _mix_color_sockets(mix: bpy.types.Node):
+    """Return (factor, a, b, result) Color/Float sockets for ShaderNodeMix RGBA.
+
+    Mix keeps hidden float/vector/color variants; name lookup can hit the wrong
+    (empty/hidden) socket. Prefer enabled RGBA sockets.
+    """
+    factor = None
+    a = b = result = None
+    for socket in mix.inputs:
+        if getattr(socket, "enabled", True) is False:
+            continue
+        name = socket.name
+        if name in {"Factor", "Fac"} and socket.type == "VALUE":
+            factor = socket
+        elif name == "A" and socket.type in {"RGBA", "VECTOR", "VALUE"}:
+            if a is None or socket.type == "RGBA":
+                a = socket
+        elif name == "B" and socket.type in {"RGBA", "VECTOR", "VALUE"}:
+            if b is None or socket.type == "RGBA":
+                b = socket
+    for socket in mix.outputs:
+        if getattr(socket, "enabled", True) is False:
+            continue
+        if socket.name in {"Result", "Result_Color"} and socket.type in {
+            "RGBA",
+            "VECTOR",
+            "VALUE",
+        }:
+            if result is None or socket.type == "RGBA":
+                result = socket
+    # Hard indices from Blender Mix Color layout if discovery failed.
+    if factor is None and len(mix.inputs) > 0:
+        factor = mix.inputs[0]
+    if a is None and len(mix.inputs) > 6:
+        a = mix.inputs[6]
+    if b is None and len(mix.inputs) > 7:
+        b = mix.inputs[7]
+    if result is None and len(mix.outputs) > 2:
+        result = mix.outputs[2]
+    return factor, a, b, result
 
 
 def sync_binary_sun_to_world(settings, owned: bpy.types.World) -> None:
@@ -92,16 +148,15 @@ def sync_binary_sun_to_world(settings, owned: bpy.types.World) -> None:
     _set_combine_xyz(dir_node, secondary)
 
     tint = settings.secondary_sun_color
-    color_node.outputs[0].default_value = (tint[0], tint[1], tint[2], 1.0)
+    if color_node.outputs:
+        color_node.outputs[0].default_value = (tint[0], tint[1], tint[2], 1.0)
 
     # Half-angle radius in radians for the disk falloff.
     half = math.radians(max(0.01, float(settings.secondary_sun_size_deg)) * 0.5)
-    if radius_node is not None:
-        radius_node.inputs[0].default_value = half
+    _set_value_output(radius_node, half)
 
     strength = float(settings.secondary_sun_strength) if enabled else 0.0
-    if strength_node is not None:
-        strength_node.inputs[0].default_value = max(0.0, strength)
+    _set_value_output(strength_node, max(0.0, strength))
 
 
 def sync_celestials(scene: bpy.types.Scene) -> None:
@@ -142,7 +197,10 @@ def wire_binary_sun_nodes(
     view.label = defaults.NODE_SEC_VIEW
     view.location = (-720.0, 380.0)
     view.operation = "SCALE"
-    view.inputs[3].default_value = -1.0
+    if len(view.inputs) > 3:
+        view.inputs[3].default_value = -1.0
+    elif view.inputs.get("Scale") is not None:
+        view.inputs["Scale"].default_value = -1.0
 
     direction = nodes.new("ShaderNodeCombineXYZ")
     direction.name = defaults.NODE_SEC_DIR
@@ -215,7 +273,9 @@ def wire_binary_sun_nodes(
     add.location = (-240.0, 160.0)
     add.data_type = "RGBA"
     add.blend_type = "ADD"
-    add.inputs["Factor"].default_value = 1.0
+    factor_sock, a_sock, b_sock, result_sock = _mix_color_sockets(add)
+    if factor_sock is not None:
+        factor_sock.default_value = 1.0
 
     links.new(geo.outputs["Incoming"], view.inputs[0])
     links.new(view.outputs["Vector"], dot.inputs[0])
@@ -223,12 +283,17 @@ def wire_binary_sun_nodes(
     links.new(dot.outputs["Value"], clamp_dot.inputs["Value"])
     links.new(clamp_dot.outputs["Result"], acos.inputs[0])
     links.new(acos.outputs["Value"], disk_map.inputs["Value"])
-    links.new(radius.outputs["Value"], disk_map.inputs["From Max"])
+    links.new(radius.outputs[0], disk_map.inputs["From Max"])
     links.new(disk_map.outputs["Result"], fac_strength.inputs[0])
-    links.new(strength.outputs["Value"], fac_strength.inputs[1])
+    links.new(strength.outputs[0], fac_strength.inputs[1])
     links.new(color.outputs["Color"], scaled.inputs[0])
-    links.new(fac_strength.outputs["Value"], scaled.inputs[3])
-    links.new(wb_color_socket, add.inputs["A"])
-    links.new(scaled.outputs["Vector"], add.inputs["B"])
-    result_add = add.outputs.get("Result_Color") or add.outputs.get("Result")
-    links.new(result_add, bg_cam.inputs["Color"])
+    if len(scaled.inputs) > 3:
+        links.new(fac_strength.outputs["Value"], scaled.inputs[3])
+    elif scaled.inputs.get("Scale") is not None:
+        links.new(fac_strength.outputs["Value"], scaled.inputs["Scale"])
+    if a_sock is not None:
+        links.new(wb_color_socket, a_sock)
+    if b_sock is not None:
+        links.new(scaled.outputs["Vector"], b_sock)
+    if result_sock is not None:
+        links.new(result_sock, bg_cam.inputs["Color"])
