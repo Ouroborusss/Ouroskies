@@ -17,9 +17,8 @@ ATMOSPHERE = {
     "altitude": 100.0,
 }
 
-# provisional: ~Blender default elevation (~15°); azimuth 90° east so
-# sunrise-toward-+X checks are one click away (sun_rotation = -az pending verify).
-MANUAL_SUN_ELEVATION_DEG = 15.0
+# provisional: Manual elevation is a ±180° orbit angle (0 = horizon toward Azimuth).
+MANUAL_SUN_ELEVATION_DEG = 0.0
 MANUAL_SUN_AZIMUTH_DEG = 90.0
 
 # provisional: NYC-ish defaults for place/date smoke tests.

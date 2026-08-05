@@ -159,7 +159,7 @@ class OUROSKIES_PT_celestials(Panel):
         )
         if settings.aim_mode == "MANUAL":
             layout.label(
-                text="Manual: moon is 180° along the sun orbit (opposite rise/set)",
+                text="Manual: moon is always opposite the sun (180°)",
                 icon="INFO",
             )
         else:

@@ -19,10 +19,16 @@ def _assets_dir() -> Path:
 
 def _moon_image() -> bpy.types.Image:
     name = defaults.MOON_DISK_IMAGE
+    path = _assets_dir() / name
     existing = bpy.data.images.get(name)
     if existing is not None:
+        # Reload from disk when the asset is updated across pulls.
+        existing.filepath = str(path)
+        try:
+            existing.reload()
+        except Exception:
+            pass
         return existing
-    path = _assets_dir() / name
     image = bpy.data.images.load(str(path), check_existing=True)
     image.name = name
     image.alpha_mode = "STRAIGHT"
@@ -73,7 +79,8 @@ def _ensure_material() -> bpy.types.Material:
     tex = nt.nodes.new("ShaderNodeTexImage")
     tex.location = (-280, 40)
     tex.image = _moon_image()
-    tex.interpolation = "Smart"
+    tex.interpolation = "Cubic"
+    tex.extension = "CLIP"
     nt.links.new(tex.outputs["Color"], emission.inputs["Color"])
     nt.links.new(tex.outputs["Alpha"], mix.inputs["Fac"])
     nt.links.new(trans.outputs["BSDF"], mix.inputs[1])
@@ -92,7 +99,7 @@ def ensure_moon_disk(scene: bpy.types.Scene) -> bpy.types.Object:
     verts = [(0.0, 0.0, 0.0)]
     edges = []
     faces = []
-    segments = 48
+    segments = 96
     for i in range(segments):
         a = (i / segments) * math.tau
         verts.append((math.cos(a), math.sin(a), 0.0))

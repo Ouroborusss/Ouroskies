@@ -26,10 +26,10 @@ def alt_az_to_direction(altitude_deg: float, azimuth_deg: float) -> Vector:
 
 
 def orbit_to_alt_az(orbit_deg: float, path_azimuth_deg: float) -> tuple[float, float]:
-    """Fold a 360° elevation orbit into horizon altitude + compass azimuth.
+    """Fold a ±180° (or 360°) elevation orbit into horizon altitude + compass azimuth.
 
-    Orbit 0° = horizon toward ``path_azimuth``, 90° = zenith, 180° = opposite
-    horizon, 270° = nadir. Used so Manual Elevation can loop continuously.
+    Orbit 0° = horizon toward ``path_azimuth``, +90° = zenith, ±180° = opposite
+    horizon, −90° = nadir. Used so Manual Elevation can loop continuously.
     """
     direction = alt_az_to_direction(orbit_deg, path_azimuth_deg)
     alt = math.degrees(math.asin(max(-1.0, min(1.0, direction.z))))

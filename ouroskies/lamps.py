@@ -14,12 +14,19 @@ LAMP_KIND_SUN = "sun"
 LAMP_KIND_MOON = "moon"
 
 
+def _wrap_elev_180(deg: float) -> float:
+    """Wrap degrees into (−180, 180]."""
+    x = (float(deg) + 180.0) % 360.0 - 180.0
+    if x <= -180.0:
+        return 180.0
+    return x
+
+
 def _sun_aim_direction(settings) -> tuple[Vector, float, float]:
     """Return (toward-sun direction, true altitude deg, true azimuth deg)."""
     from .aim import alt_az_to_direction, orbit_to_alt_az
 
     if settings.aim_mode == "MANUAL":
-        # Same orbit parameterization as the moon (+180°) — do not aim from Sky RNA.
         orbit = float(settings.sun_elevation_deg)
         path_az = float(settings.sun_azimuth_deg)
         direction = alt_az_to_direction(orbit, path_az)
@@ -32,14 +39,19 @@ def _sun_aim_direction(settings) -> tuple[Vector, float, float]:
 
 
 def _moon_aim_direction(settings) -> tuple[Vector, float, float]:
-    """Return (toward-moon direction, true altitude deg, true azimuth deg)."""
+    """Return (toward-moon direction, true altitude deg, true azimuth deg).
+
+    Manual: exact antipode of the sun (−sun direction) so azimuth/elevation
+    scrubbing always keeps a 180° separation.
+    """
     from .aim import alt_az_to_direction, orbit_to_alt_az
 
     if settings.aim_mode == "MANUAL":
-        orbit = float(settings.sun_elevation_deg) + 180.0
+        sun_dir, _sun_alt, _sun_az = _sun_aim_direction(settings)
+        direction = (-sun_dir).normalized()
+        moon_orbit = _wrap_elev_180(float(settings.sun_elevation_deg) + 180.0)
         path_az = float(settings.sun_azimuth_deg)
-        direction = alt_az_to_direction(orbit, path_az)
-        alt, az = orbit_to_alt_az(orbit, path_az)
+        alt, az = orbit_to_alt_az(moon_orbit, path_az)
         if abs(settings.moon_azimuth_deg - az) > 1e-6:
             settings.moon_azimuth_deg = az
         if abs(settings.moon_elevation_deg - alt) > 1e-6:
