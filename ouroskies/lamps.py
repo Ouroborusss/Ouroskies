@@ -38,8 +38,37 @@ def _current_sun_alt_az(settings) -> tuple[float, float]:
     return float(settings.sun_elevation_deg), float(settings.sun_azimuth_deg)
 
 
-def _current_moon_alt_az(settings) -> tuple[float, float]:
-    return float(settings.moon_elevation_deg), float(settings.moon_azimuth_deg)
+def _refresh_moon_from_place(settings) -> tuple[float, float]:
+    """Moon always follows place/date ephemeris (manual moon pose comes later)."""
+    from .ephemeris_moon import moon_azimuth_elevation
+    from .place_date import civil_to_utc
+
+    try:
+        when_utc = civil_to_utc(settings)
+    except ValueError:
+        return float(settings.moon_elevation_deg), float(settings.moon_azimuth_deg)
+
+    use_refraction = settings.aim_refraction == "APPARENT"
+    moon_az, moon_el, _dist = moon_azimuth_elevation(
+        settings.latitude,
+        settings.longitude,
+        when_utc,
+        settings.altitude,
+        refraction=use_refraction,
+    )
+    settings.moon_azimuth_deg = moon_az
+    settings.moon_elevation_deg = moon_el
+    return moon_el, moon_az
+
+
+def _horizon_factor(altitude_deg: float) -> float:
+    """1 above horizon, 0 below; smooth across ``LAMP_HORIZON_FADE_DEG``."""
+    fade = defaults.LAMP_HORIZON_FADE_DEG
+    if altitude_deg >= fade:
+        return 1.0
+    if altitude_deg <= -fade:
+        return 0.0
+    return 0.5 + 0.5 * (altitude_deg / fade)
 
 
 def _is_owned_lamp(obj: bpy.types.Object, kind: str) -> bool:
@@ -158,16 +187,25 @@ def sync_lamps(scene: bpy.types.Scene) -> None:
         alt, az = _current_sun_alt_az(settings)
         _aim_sun_object(sun_obj, alt, az)
         sun_obj.data.color = wb
-        # Sun Punch remaps later; for now PA / base energy.
-        sun_obj.data.energy = settings.sun_lamp_energy
+        factor = _horizon_factor(alt)
+        sun_obj.data.energy = settings.sun_lamp_energy * factor
+        # Keep object findable but unlit when below horizon.
+        sun_obj.hide_render = factor <= 0.0
 
     moon_obj = find_lamp_object(scene, LAMP_KIND_MOON)
     settings.has_moon_lamp = moon_obj is not None
     if moon_obj is not None:
-        alt, az = _current_moon_alt_az(settings)
+        alt, az = _refresh_moon_from_place(settings)
         _aim_sun_object(moon_obj, alt, az)
-        moon_obj.data.color = wb
-        moon_obj.data.energy = settings.moon_lamp_energy
+        # Cooler moonlight tint on top of WB.
+        moon_obj.data.color = (
+            wb[0] * 0.85,
+            wb[1] * 0.92,
+            min(1.0, wb[2] * 1.05),
+        )
+        factor = _horizon_factor(alt)
+        moon_obj.data.energy = settings.moon_lamp_energy * factor
+        moon_obj.hide_render = factor <= 0.0
 
     owned_world = None
     if settings.is_enabled:
@@ -184,6 +222,7 @@ def _aim_sun_object(obj: bpy.types.Object, altitude_deg: float, azimuth_deg: flo
     elev = math.radians(altitude_deg)
     az = math.radians(azimuth_deg)
     obj.rotation_euler = Euler((elev - math.pi / 2.0, 0.0, -az), "XYZ")
+    obj.hide_viewport = False
 
 
 def apply_pa_lamp_energies(scene: bpy.types.Scene) -> None:

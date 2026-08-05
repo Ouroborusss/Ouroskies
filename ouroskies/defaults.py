@@ -58,10 +58,13 @@ LAMP_OWNED_KEY = "ouroskies_owned_lamp"
 LAMP_KIND_KEY = "ouroskies_lamp_kind"
 LAMP_DISTANCE = 1000.0
 SUN_LAMP_ENERGY = 4.0
-MOON_LAMP_ENERGY = 0.05
+# provisional: visible night fill without matching daylight sun (was 0.05 — invisible).
+MOON_LAMP_ENERGY = 0.4
 PA_SUN_LAMP_ENERGY = 4.0
-PA_MOON_LAMP_ENERGY = 0.05
+PA_MOON_LAMP_ENERGY = 0.4
 SUN_LAMP_ANGLE_RAD = 0.00918043  # ~0.526° — near solar angular diameter
+# Fade lamp energy across the horizon (degrees).
+LAMP_HORIZON_FADE_DEG = 3.0
 WORLD_SUN_THRESHOLD_DEFAULT = 10.0
 
 WORLD_NAME = "OuroSkies"

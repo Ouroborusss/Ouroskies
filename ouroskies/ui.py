@@ -181,11 +181,19 @@ class OUROSKIES_PT_setup(Panel):
         row.operator("ouroskies.remove_sun_lamp", text="Remove")
         if settings.has_sun_lamp:
             layout.prop(settings, "sun_lamp_energy")
+            layout.label(text="Sun lamp fades out below the horizon", icon="INFO")
         row = layout.row(align=True)
         row.operator("ouroskies.add_moon_lamp", text="Add Moon Lamp")
         row.operator("ouroskies.remove_moon_lamp", text="Remove")
         if settings.has_moon_lamp:
             layout.prop(settings, "moon_lamp_energy")
+            layout.label(
+                text=(
+                    f"Moon aim  elev {settings.moon_elevation_deg:.1f}°"
+                    f"  az {settings.moon_azimuth_deg:.1f}°"
+                ),
+                icon="INFO",
+            )
 
         layout.separator()
         layout.operator("ouroskies.rebuild_sky_graph", text="Rebuild Sky Graph")
