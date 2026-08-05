@@ -48,7 +48,7 @@ AIRGLOW_TINT = (0.55, 0.65, 0.60, 1.0)
 AIRGLOW_FADE_LOW_DEG = -6.0
 AIRGLOW_FADE_HIGH_DEG = 6.0
 
-EXPOSURE = 0.0
+EXPOSURE = -3.0
 
 # provisional: lamp energies / angle; PA sets these when lamps exist.
 SUN_LAMP_NAME = "OuroSkies Sun Lamp"
