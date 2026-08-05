@@ -260,7 +260,7 @@ Fill during implementation or a short follow-up; not product-scope forks:
 - Kelvin numbers for Cloudy / Shade / Warm  
 - Airglow default strength + default tint  
 - Physically Accurate numeric targets (Sky Strength, lamp W·m⁻², World Contribution neutral)  
-- Reset Atmosphere default values  
+- Reset Atmosphere default values — provisional in `ouroskies/defaults.py` (Air/Dust/Ozone 1.0, Altitude 100 m)  
 - Confirm `sun_rotation = −az` on Cycles 5.2 sunrise → +X  
 - Previous-World snapshot strategy if user deletes it while active  
 - Daylight star fade curve  
