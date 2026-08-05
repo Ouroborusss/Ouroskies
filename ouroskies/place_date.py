@@ -12,42 +12,12 @@ from bpy.app.handlers import persistent
 from . import aim, world
 from .ephemeris_moon import moon_azimuth_elevation
 from .ephemeris_sun import sun_azimuth_elevation
-
-
-def _zoneinfo(name: str):
-    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-
-    try:
-        return ZoneInfo(name)
-    except ZoneInfoNotFoundError:
-        return ZoneInfo("UTC")
-
-
-def civil_to_utc(settings) -> datetime:
-    """Convert Scene civil date/time + IANA timezone to UTC."""
-    hours = float(settings.time_hours) % 24.0
-    hour = int(hours)
-    minutes_f = (hours - hour) * 60.0
-    minute = int(minutes_f)
-    second = int(round((minutes_f - minute) * 60.0))
-    if second >= 60:
-        second = 59
-    tz = _zoneinfo(settings.timezone)
-    local = datetime(
-        int(settings.year),
-        int(settings.month),
-        int(settings.day),
-        hour,
-        minute,
-        second,
-        tzinfo=tz,
-    )
-    return local.astimezone(timezone.utc)
+from .time_util import civil_to_utc, zoneinfo_for
 
 
 def format_status(settings, when_utc: datetime) -> tuple[str, str]:
     place = f"{settings.latitude:.2f}°, {settings.longitude:.2f}°"
-    local = when_utc.astimezone(_zoneinfo(settings.timezone))
+    local = when_utc.astimezone(zoneinfo_for(settings.timezone))
     when = local.strftime("%Y-%m-%d %H:%M")
     return place, when
 

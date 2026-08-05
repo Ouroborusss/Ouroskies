@@ -134,7 +134,11 @@ class OUROSKIES_OT_add_sun_lamp(Operator):
     def execute(self, context):
         from . import lamps
 
-        obj = lamps.add_lamp(context.scene, lamps.LAMP_KIND_SUN)
+        try:
+            obj = lamps.add_lamp(context.scene, lamps.LAMP_KIND_SUN)
+        except Exception as exc:
+            self.report({"ERROR"}, f"Add Sun Lamp failed: {exc}")
+            return {"CANCELLED"}
         self.report({"INFO"}, f"Added {obj.name}")
         return {"FINISHED"}
 
@@ -165,7 +169,11 @@ class OUROSKIES_OT_add_moon_lamp(Operator):
     def execute(self, context):
         from . import lamps
 
-        obj = lamps.add_lamp(context.scene, lamps.LAMP_KIND_MOON)
+        try:
+            obj = lamps.add_lamp(context.scene, lamps.LAMP_KIND_MOON)
+        except Exception as exc:
+            self.report({"ERROR"}, f"Add Moon Lamp failed: {exc}")
+            return {"CANCELLED"}
         self.report({"INFO"}, f"Added {obj.name}")
         return {"FINISHED"}
 

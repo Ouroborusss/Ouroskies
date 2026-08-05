@@ -40,24 +40,27 @@ def _current_sun_alt_az(settings) -> tuple[float, float]:
 
 def _refresh_moon_from_place(settings) -> tuple[float, float]:
     """Moon always follows place/date ephemeris (manual moon pose comes later)."""
-    from .ephemeris_moon import moon_azimuth_elevation
-    from .place_date import civil_to_utc
-
     try:
+        from .ephemeris_moon import moon_azimuth_elevation
+        from .time_util import civil_to_utc
+
         when_utc = civil_to_utc(settings)
-    except ValueError:
+        use_refraction = settings.aim_refraction == "APPARENT"
+        moon_az, moon_el, _dist = moon_azimuth_elevation(
+            settings.latitude,
+            settings.longitude,
+            when_utc,
+            settings.altitude,
+            refraction=use_refraction,
+        )
+    except Exception:
         return float(settings.moon_elevation_deg), float(settings.moon_azimuth_deg)
 
-    use_refraction = settings.aim_refraction == "APPARENT"
-    moon_az, moon_el, _dist = moon_azimuth_elevation(
-        settings.latitude,
-        settings.longitude,
-        when_utc,
-        settings.altitude,
-        refraction=use_refraction,
-    )
-    settings.moon_azimuth_deg = moon_az
-    settings.moon_elevation_deg = moon_el
+    # Avoid RNA update recursion — write only when values change.
+    if abs(settings.moon_azimuth_deg - moon_az) > 1e-6:
+        settings.moon_azimuth_deg = moon_az
+    if abs(settings.moon_elevation_deg - moon_el) > 1e-6:
+        settings.moon_elevation_deg = moon_el
     return moon_el, moon_az
 
 
@@ -95,6 +98,24 @@ def settings_lamp_name(scene: bpy.types.Scene, kind: str) -> str:
     return settings.moon_lamp_name or defaults.MOON_LAMP_NAME
 
 
+def _unique_light_name(base: str) -> str:
+    if base not in bpy.data.lights:
+        return base
+    index = 1
+    while f"{base}.{index:03d}" in bpy.data.lights:
+        index += 1
+    return f"{base}.{index:03d}"
+
+
+def _unique_object_name(base: str) -> str:
+    if base not in bpy.data.objects:
+        return base
+    index = 1
+    while f"{base}.{index:03d}" in bpy.data.objects:
+        index += 1
+    return f"{base}.{index:03d}"
+
+
 def _apply_sun_extraction(world: bpy.types.World | None, enabled_sun_lamp: bool) -> None:
     if world is None:
         return
@@ -109,17 +130,25 @@ def add_lamp(scene: bpy.types.Scene, kind: str) -> bpy.types.Object:
         sync_lamps(scene)
         return existing
 
-    name = defaults.SUN_LAMP_NAME if kind == LAMP_KIND_SUN else defaults.MOON_LAMP_NAME
-    light = bpy.data.lights.new(name=name, type="SUN")
+    base = defaults.SUN_LAMP_NAME if kind == LAMP_KIND_SUN else defaults.MOON_LAMP_NAME
+    light_name = _unique_light_name(base)
+    object_name = _unique_object_name(base)
+
+    light = bpy.data.lights.new(name=light_name, type="SUN")
     light.energy = (
         defaults.SUN_LAMP_ENERGY if kind == LAMP_KIND_SUN else defaults.MOON_LAMP_ENERGY
     )
     light.angle = defaults.SUN_LAMP_ANGLE_RAD
 
-    obj = bpy.data.objects.new(name, light)
+    obj = bpy.data.objects.new(object_name, light)
     obj[defaults.LAMP_OWNED_KEY] = True
     obj[defaults.LAMP_KIND_KEY] = kind
-    scene.collection.objects.link(obj)
+
+    # Prefer the scene's active view layer collection; fall back to scene collection.
+    try:
+        scene.collection.objects.link(obj)
+    except RuntimeError:
+        bpy.context.scene.collection.objects.link(obj)
 
     settings = scene.ouroskies
     if kind == LAMP_KIND_SUN:
@@ -183,21 +212,19 @@ def sync_lamps(scene: bpy.types.Scene) -> None:
 
     sun_obj = find_lamp_object(scene, LAMP_KIND_SUN)
     settings.has_sun_lamp = sun_obj is not None
-    if sun_obj is not None:
+    if sun_obj is not None and sun_obj.data is not None:
         alt, az = _current_sun_alt_az(settings)
         _aim_sun_object(sun_obj, alt, az)
         sun_obj.data.color = wb
         factor = _horizon_factor(alt)
         sun_obj.data.energy = settings.sun_lamp_energy * factor
-        # Keep object findable but unlit when below horizon.
         sun_obj.hide_render = factor <= 0.0
 
     moon_obj = find_lamp_object(scene, LAMP_KIND_MOON)
     settings.has_moon_lamp = moon_obj is not None
-    if moon_obj is not None:
+    if moon_obj is not None and moon_obj.data is not None:
         alt, az = _refresh_moon_from_place(settings)
         _aim_sun_object(moon_obj, alt, az)
-        # Cooler moonlight tint on top of WB.
         moon_obj.data.color = (
             wb[0] * 0.85,
             wb[1] * 0.92,
