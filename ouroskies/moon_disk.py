@@ -22,13 +22,16 @@ def _moon_image() -> bpy.types.Image:
     path = _assets_dir() / name
     existing = bpy.data.images.get(name)
     if existing is not None:
-        # Reload from disk when the asset is updated across pulls.
-        existing.filepath = str(path)
-        try:
-            existing.reload()
-        except Exception:
-            pass
-        return existing
+        # Drop stale packed/high-res copies so pulls pick up the new plate.
+        if tuple(existing.size) != (1080, 1080) or existing.filepath != str(path):
+            bpy.data.images.remove(existing)
+            existing = None
+        else:
+            try:
+                existing.reload()
+            except Exception:
+                pass
+            return existing
     image = bpy.data.images.load(str(path), check_existing=True)
     image.name = name
     image.alpha_mode = "STRAIGHT"
@@ -156,12 +159,11 @@ def remove_moon_disk(scene: bpy.types.Scene) -> None:
 
 def sync_moon_disk(
     scene: bpy.types.Scene,
-    altitude_deg: float,
-    azimuth_deg: float,
+    direction: Vector,
     *,
     visible_factor: float,
 ) -> None:
-    """Aim / scale the moon disk. Creates it when OuroSkies is enabled."""
+    """Aim / scale the moon disk from the same toward-moon vector as the lamp."""
     settings = scene.ouroskies
     if not settings.is_enabled:
         return
@@ -170,16 +172,7 @@ def sync_moon_disk(
     settings.has_moon_disk = True
     settings.moon_disk_name = obj.name
 
-    alt = math.radians(altitude_deg)
-    az = math.radians(azimuth_deg)
-    direction = Vector(
-        (
-            math.cos(alt) * math.sin(az),
-            math.cos(alt) * math.cos(az),
-            math.sin(alt),
-        )
-    ).normalized()
-
+    direction = direction.normalized()
     distance = defaults.MOON_DISK_DISTANCE
     angular = math.radians(max(0.05, float(settings.moon_size_deg)))
     radius = distance * math.tan(angular * 0.5)

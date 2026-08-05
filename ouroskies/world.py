@@ -142,12 +142,16 @@ def rebuild_sky_graph(world: bpy.types.World, settings: bpy.types.PropertyGroup)
     output.name = defaults.NODE_OUTPUT
     output.label = defaults.NODE_OUTPUT
     output.location = (440.0, 0.0)
+    output.is_active_output = True
+    output.target = "ALL"
 
     links = node_tree.links
     links.new(sky.outputs["Color"], wb_mix.inputs["A"])
     links.new(wb_color.outputs["Color"], wb_mix.inputs["B"])
-    links.new(wb_mix.outputs["Result"], bg_cam.inputs["Color"])
-    links.new(wb_mix.outputs["Result"], bg_light.inputs["Color"])
+    # Prefer typed Color sockets when present (Blender 4+/5 Mix node).
+    result = wb_mix.outputs.get("Result_Color") or wb_mix.outputs.get("Result")
+    links.new(result, bg_cam.inputs["Color"])
+    links.new(result, bg_light.inputs["Color"])
     links.new(light_path.outputs["Is Camera Ray"], mix_cam.inputs["Factor"])
     links.new(bg_light.outputs["Background"], mix_cam.inputs[1])
     links.new(bg_cam.outputs["Background"], mix_cam.inputs[2])
@@ -155,6 +159,10 @@ def rebuild_sky_graph(world: bpy.types.World, settings: bpy.types.PropertyGroup)
     links.new(mix_cam.outputs["Shader"], add_glow.inputs[0])
     links.new(bg_glow.outputs["Background"], add_glow.inputs[1])
     links.new(add_glow.outputs["Shader"], output.inputs["Surface"])
+
+    if hasattr(sky, "sun_disc"):
+        sky.sun_disc = True
+    sky.texture_mapping.rotation = (0.0, 0.0, 0.0)
 
     looks.sync_looks_to_world(settings, world)
 

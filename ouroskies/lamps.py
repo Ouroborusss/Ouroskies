@@ -263,6 +263,16 @@ def sync_lamps(scene: bpy.types.Scene) -> None:
     moon_factor = _horizon_factor(moon_el)
     sun_factor = _horizon_factor(sun_alt)
 
+    # Keep Sky Texture disc locked to the same vector as the sun lamp.
+    if settings.is_enabled:
+        from . import aim, world as world_mod
+
+        owned = world_mod.find_ouroskies_world(scene)
+        if owned is not None:
+            sky = world_mod.find_sky_node(owned)
+            if sky is not None:
+                aim.apply_direction_to_sky(sky, sun_direction)
+
     sun_obj = find_lamp_object(scene, LAMP_KIND_SUN)
     settings.has_sun_lamp = sun_obj is not None
     if sun_obj is not None:
@@ -294,8 +304,7 @@ def sync_lamps(scene: bpy.types.Scene) -> None:
 
         moon_disk.sync_moon_disk(
             scene,
-            moon_el,
-            moon_az,
+            moon_direction,
             visible_factor=moon_factor,
         )
 
