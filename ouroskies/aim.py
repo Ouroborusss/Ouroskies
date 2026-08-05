@@ -35,6 +35,16 @@ def apply_manual_aim_to_sky(
     sky.sun_rotation = rotation
 
 
+def reset_manual_sun(scene: bpy.types.Scene) -> None:
+    """Restore provisional Manual sun elev/az and sync if Aim is Manual."""
+    from . import defaults
+
+    settings = scene.ouroskies
+    settings.sun_elevation_deg = defaults.MANUAL_SUN_ELEVATION_DEG
+    settings.sun_azimuth_deg = defaults.MANUAL_SUN_AZIMUTH_DEG
+    sync_aim(scene)
+
+
 def sync_aim(scene: bpy.types.Scene) -> None:
     """Push aim onto the Sky Texture for the active Aim mode."""
     settings = scene.ouroskies

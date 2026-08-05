@@ -72,6 +72,22 @@ class OUROSKIES_OT_reset_atmosphere(Operator):
         return {"FINISHED"}
 
 
+class OUROSKIES_OT_reset_sun_position(Operator):
+    """Restore provisional Manual sun elevation and azimuth."""
+
+    bl_idname = "ouroskies.reset_sun_position"
+    bl_label = "Reset Sun Position"
+    bl_description = "Restore default Manual sun elevation and azimuth (15° / 90° east)"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        from . import aim
+
+        aim.reset_manual_sun(context.scene)
+        self.report({"INFO"}, "Manual sun position reset to provisional defaults")
+        return {"FINISHED"}
+
+
 class OUROSKIES_OT_physically_accurate(Operator):
     """Apply Physically Accurate brightness targets (filled by Looks ticket)."""
 
@@ -93,6 +109,7 @@ CLASSES = (
     OUROSKIES_OT_detach,
     OUROSKIES_OT_rebuild_sky_graph,
     OUROSKIES_OT_reset_atmosphere,
+    OUROSKIES_OT_reset_sun_position,
     OUROSKIES_OT_physically_accurate,
 )
 

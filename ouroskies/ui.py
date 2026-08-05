@@ -103,6 +103,9 @@ class OUROSKIES_PT_celestials(Panel):
         col.enabled = settings.aim_mode == "MANUAL"
         col.prop(settings, "sun_elevation_deg", text="Elevation")
         col.prop(settings, "sun_azimuth_deg", text="Azimuth")
+        row = layout.row()
+        row.enabled = settings.aim_mode == "MANUAL"
+        row.operator("ouroskies.reset_sun_position", text="Reset Sun Position")
         if settings.aim_mode == "PLACE_DATE":
             layout.label(
                 text=(
