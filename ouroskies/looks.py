@@ -39,7 +39,13 @@ def kelvin_to_rgb(kelvin: float) -> tuple[float, float, float]:
 def _current_sun_elevation_deg(settings) -> float:
     if settings.aim_mode == "PLACE_DATE":
         return float(settings.evaluated_sun_elevation_deg)
-    return float(settings.sun_elevation_deg)
+    from .aim import orbit_to_alt_az
+
+    alt, _az = orbit_to_alt_az(
+        float(settings.sun_elevation_deg),
+        float(settings.sun_azimuth_deg),
+    )
+    return alt
 
 
 def airglow_daylight_fade(sun_elevation_deg: float) -> float:

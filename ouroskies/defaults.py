@@ -56,7 +56,7 @@ SUN_LAMP_NAME = "OuroSkies Sun Lamp"
 MOON_LAMP_NAME = "OuroSkies Moon Lamp"
 LAMP_OWNED_KEY = "ouroskies_owned_lamp"
 LAMP_KIND_KEY = "ouroskies_lamp_kind"
-LAMP_DISTANCE = 1000.0
+LAMP_DISTANCE = 120.0
 SUN_LAMP_ENERGY = 4.0
 # provisional: visible night fill without matching daylight sun (was 0.05 — invisible).
 MOON_LAMP_ENERGY = 0.4
@@ -67,10 +67,10 @@ SUN_LAMP_ANGLE_RAD = 0.00918043  # ~0.526° — near solar angular diameter
 LAMP_HORIZON_FADE_DEG = 3.0
 WORLD_SUN_THRESHOLD_DEFAULT = 10.0
 
-# provisional: moon disk object + texture; angular size slightly large for EEVEE readability.
+# provisional: moon disk behind the lamp, well inside default camera clip_end (1000).
 MOON_DISK_NAME = "OuroSkies Moon Disk"
 MOON_DISK_OWNED_KEY = "ouroskies_moon_disk"
-MOON_DISK_DISTANCE = 1000.0
+MOON_DISK_DISTANCE = 280.0
 MOON_ANGULAR_DIAMETER_DEG = 1.5
 MOON_DISK_EMISSION = 12.0
 MOON_DISK_IMAGE = "moon_disk.png"

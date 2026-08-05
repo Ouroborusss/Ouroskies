@@ -52,9 +52,13 @@ def _ensure_material() -> bpy.types.Material:
     if mat is None:
         mat = bpy.data.materials.new(mat_name)
     mat.use_nodes = True
-    mat.blend_method = "HASHED"
+    # CLIP avoids EEVEE hashed-transparency holes against the World background.
+    mat.blend_method = "CLIP"
+    if hasattr(mat, "alpha_threshold"):
+        mat.alpha_threshold = 0.2
     if hasattr(mat, "shadow_method"):
         mat.shadow_method = "NONE"
+    mat.use_backface_culling = True
     nt = mat.node_tree
     nt.nodes.clear()
     out = nt.nodes.new("ShaderNodeOutputMaterial")
@@ -69,6 +73,7 @@ def _ensure_material() -> bpy.types.Material:
     tex = nt.nodes.new("ShaderNodeTexImage")
     tex.location = (-280, 40)
     tex.image = _moon_image()
+    tex.interpolation = "Smart"
     nt.links.new(tex.outputs["Color"], emission.inputs["Color"])
     nt.links.new(tex.outputs["Alpha"], mix.inputs["Fac"])
     nt.links.new(trans.outputs["BSDF"], mix.inputs[1])
@@ -183,17 +188,30 @@ def sync_moon_disk(
     hide = visible_factor <= 0.001
     obj.hide_render = hide
     obj.hide_viewport = hide
+    if hasattr(obj, "visible_camera"):
+        obj.visible_camera = not hide
+    if hasattr(obj, "visible_shadow"):
+        obj.visible_shadow = False
+    if hasattr(obj, "visible_volume_scatter"):
+        obj.visible_volume_scatter = False
+
+    # Rebuild material if an older HASHED version is still attached.
+    if obj.data is not None:
+        mat = _ensure_material()
+        if obj.data.materials:
+            obj.data.materials[0] = mat
+        else:
+            obj.data.materials.append(mat)
 
     # Dim emission near the horizon.
     if obj.data is not None and obj.data.materials:
         mat = obj.data.materials[0]
         if mat is not None and mat.node_tree is not None:
-            emission = mat.node_tree.nodes.get("Emission")
-            if emission is None:
-                for node in mat.node_tree.nodes:
-                    if node.type == "EMISSION":
-                        emission = node
-                        break
+            emission = None
+            for node in mat.node_tree.nodes:
+                if node.type == "EMISSION":
+                    emission = node
+                    break
             if emission is not None:
                 emission.inputs["Strength"].default_value = (
                     defaults.MOON_DISK_EMISSION * max(visible_factor, 0.0)

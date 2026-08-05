@@ -7,8 +7,34 @@ from __future__ import annotations
 import math
 
 import bpy
+from mathutils import Vector
 
 from . import world
+
+
+def alt_az_to_direction(altitude_deg: float, azimuth_deg: float) -> Vector:
+    """Unit vector toward a body. Altitude may be a full 360° orbit angle."""
+    alt = math.radians(altitude_deg)
+    az = math.radians(azimuth_deg)
+    return Vector(
+        (
+            math.cos(alt) * math.sin(az),
+            math.cos(alt) * math.cos(az),
+            math.sin(alt),
+        )
+    ).normalized()
+
+
+def orbit_to_alt_az(orbit_deg: float, path_azimuth_deg: float) -> tuple[float, float]:
+    """Fold a 360° elevation orbit into horizon altitude + compass azimuth.
+
+    Orbit 0° = horizon toward ``path_azimuth``, 90° = zenith, 180° = opposite
+    horizon, 270° = nadir. Used so Manual Elevation can loop continuously.
+    """
+    direction = alt_az_to_direction(orbit_deg, path_azimuth_deg)
+    alt = math.degrees(math.asin(max(-1.0, min(1.0, direction.z))))
+    az = math.degrees(math.atan2(direction.x, direction.y)) % 360.0
+    return alt, az
 
 
 def alt_az_degrees_to_sky_radians(altitude_deg: float, azimuth_deg: float) -> tuple[float, float]:
@@ -18,9 +44,9 @@ def alt_az_degrees_to_sky_radians(altitude_deg: float, azimuth_deg: float) -> tu
     ``sun_elevation = alt``, ``sun_rotation = -az`` (radians).
     Azimuth is eastward from north; +Y north, +X east, +Z up.
     """
-    altitude_rad = math.radians(altitude_deg)
-    azimuth_rad = math.radians(azimuth_deg)
-    return altitude_rad, -azimuth_rad
+    # Sky Texture expects true altitude, not a wrapped orbit angle.
+    alt, az = orbit_to_alt_az(altitude_deg, azimuth_deg)
+    return math.radians(alt), -math.radians(az)
 
 
 def apply_manual_aim_to_sky(

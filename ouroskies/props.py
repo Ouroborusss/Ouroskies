@@ -92,12 +92,15 @@ class OuroSkiesSettings(PropertyGroup):
 
     sun_elevation_deg: FloatProperty(
         name="Sun Elevation",
-        description="Primary sun altitude above the horizon in degrees (Manual aim). +Z up",
+        description=(
+            "Manual sun orbit angle in degrees (full 360° loop). "
+            "0° = horizon toward Azimuth, 90° = zenith, 180° = opposite horizon, 270° = nadir"
+        ),
         default=defaults.MANUAL_SUN_ELEVATION_DEG,
-        soft_min=-90.0,
-        soft_max=90.0,
-        min=-90.0,
-        max=90.0,
+        soft_min=0.0,
+        soft_max=360.0,
+        min=-720.0,
+        max=720.0,
         update=_on_aim_update,
     )
     sun_azimuth_deg: FloatProperty(

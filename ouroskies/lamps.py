@@ -17,16 +17,9 @@ LAMP_KIND_MOON = "moon"
 
 
 def _alt_az_to_direction(altitude_deg: float, azimuth_deg: float) -> Vector:
-    """Unit vector toward the body in +Y-north / +Z-up frame."""
-    alt = math.radians(altitude_deg)
-    az = math.radians(azimuth_deg)
-    return Vector(
-        (
-            math.cos(alt) * math.sin(az),
-            math.cos(alt) * math.cos(az),
-            math.sin(alt),
-        )
-    ).normalized()
+    from .aim import alt_az_to_direction
+
+    return alt_az_to_direction(altitude_deg, azimuth_deg)
 
 
 def _direction_from_sky(sky: bpy.types.ShaderNodeTexSky) -> Vector:
@@ -51,19 +44,23 @@ def _current_sun_alt_az(settings) -> tuple[float, float]:
             float(settings.evaluated_sun_elevation_deg),
             float(settings.evaluated_sun_azimuth_deg),
         )
-    return float(settings.sun_elevation_deg), float(settings.sun_azimuth_deg)
+    # Manual Elevation is a 360° orbit angle — fold to true alt/az for lamps/disk/UI.
+    from .aim import orbit_to_alt_az
+
+    return orbit_to_alt_az(float(settings.sun_elevation_deg), float(settings.sun_azimuth_deg))
 
 
 def evaluate_moon_aim(settings) -> tuple[float, float]:
     """Moon alt/az for lamps + disk.
 
-    Place/Date uses Meeus ephemeris. Manual uses a full-moon-style opposite-sun
-    path so scrubbing sun elevation walks the moon through a night cycle.
+    Place/Date uses Meeus ephemeris. Manual places the moon 180° along the same
+    elevation orbit so sun and moon rise/set on opposite horizons.
     """
     if settings.aim_mode == "MANUAL":
-        sun_el, sun_az = _current_sun_alt_az(settings)
-        moon_el = -sun_el
-        moon_az = (sun_az + 180.0) % 360.0
+        from .aim import orbit_to_alt_az
+
+        moon_orbit = float(settings.sun_elevation_deg) + 180.0
+        moon_el, moon_az = orbit_to_alt_az(moon_orbit, float(settings.sun_azimuth_deg))
         if abs(settings.moon_azimuth_deg - moon_az) > 1e-6:
             settings.moon_azimuth_deg = moon_az
         if abs(settings.moon_elevation_deg - moon_el) > 1e-6:
@@ -334,6 +331,11 @@ def _aim_sun_object(obj: bpy.types.Object, direction: Vector) -> None:
     # Light travels opposite the toward-sun vector.
     obj.rotation_quaternion = (-direction).to_track_quat("-Z", "Y")
     obj.hide_viewport = False
+    # Lamps light the scene; the moon disk is the visible celestial.
+    if hasattr(obj, "visible_camera"):
+        obj.visible_camera = False
+    if hasattr(obj, "visible_shadow"):
+        obj.visible_shadow = True
 
 
 def resync_all_scenes() -> None:

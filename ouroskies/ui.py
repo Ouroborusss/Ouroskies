@@ -124,6 +124,17 @@ class OUROSKIES_PT_celestials(Panel):
         col.enabled = settings.aim_mode == "MANUAL"
         col.prop(settings, "sun_elevation_deg", text="Elevation")
         col.prop(settings, "sun_azimuth_deg", text="Azimuth")
+        if settings.aim_mode == "MANUAL":
+            from .aim import orbit_to_alt_az
+
+            alt, az = orbit_to_alt_az(
+                settings.sun_elevation_deg,
+                settings.sun_azimuth_deg,
+            )
+            layout.label(
+                text=f"Folded sun  elev {alt:.1f}°  az {az:.1f}°",
+                icon="INFO",
+            )
         row = layout.row()
         row.enabled = settings.aim_mode == "MANUAL"
         row.operator("ouroskies.reset_sun_position", text="Reset Sun Position")
@@ -148,7 +159,7 @@ class OUROSKIES_PT_celestials(Panel):
         )
         if settings.aim_mode == "MANUAL":
             layout.label(
-                text="Manual: moon tracks opposite the sun",
+                text="Manual: moon is 180° along the sun orbit (opposite rise/set)",
                 icon="INFO",
             )
         else:
