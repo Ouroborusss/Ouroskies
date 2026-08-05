@@ -15,3 +15,8 @@ license = [
 copyright = [
   "2026 Ouroborusss",
 ]
+
+# Windows (and other hosts without a system IANA tzdb) need tzdata for zoneinfo.
+wheels = [
+  "./wheels/tzdata-2026.3-py2.py3-none-any.whl",
+]
