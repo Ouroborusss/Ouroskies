@@ -89,18 +89,39 @@ class OUROSKIES_OT_reset_sun_position(Operator):
 
 
 class OUROSKIES_OT_physically_accurate(Operator):
-    """Apply Physically Accurate brightness targets (filled by Looks ticket)."""
+    """Apply Physically Accurate brightness targets and Daylight WB."""
 
     bl_idname = "ouroskies.physically_accurate"
     bl_label = "Physically Accurate"
-    bl_description = "Reset brightness toward real-world targets (not implemented yet)"
+    bl_description = (
+        "Set Sky Strength, World Contribution, and White Balance to provisional "
+        "physical targets; does not change Exposure or atmosphere"
+    )
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
-        self.report(
-            {"INFO"},
-            "Physically Accurate is a stub — Looks presets come later",
-        )
+        from . import looks
+
+        looks.physically_accurate(context.scene)
+        self.report({"INFO"}, "Physically Accurate looks applied")
+        return {"FINISHED"}
+
+
+class OUROSKIES_OT_wb_preset(Operator):
+    """Apply a White Balance Kelvin preset."""
+
+    bl_idname = "ouroskies.wb_preset"
+    bl_label = "WB Preset"
+    bl_description = "Set White Balance Kelvin from a named preset"
+    bl_options = {"REGISTER", "UNDO"}
+
+    preset: bpy.props.StringProperty(default="DAYLIGHT")
+
+    def execute(self, context):
+        from . import looks
+
+        looks.set_wb_preset(context.scene, self.preset)
+        self.report({"INFO"}, f"White Balance preset {self.preset.title()}")
         return {"FINISHED"}
 
 
@@ -111,6 +132,7 @@ CLASSES = (
     OUROSKIES_OT_reset_atmosphere,
     OUROSKIES_OT_reset_sun_position,
     OUROSKIES_OT_physically_accurate,
+    OUROSKIES_OT_wb_preset,
 )
 
 

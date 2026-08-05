@@ -31,8 +31,38 @@ PLACE_MONTH = 8
 PLACE_DAY = 4
 PLACE_TIME_HOURS = 12.0
 
+# provisional: photography-ish Kelvin presets; Daylight locked ~6500K.
+WB_DAYLIGHT_KELVIN = 6500.0
+WB_CLOUDY_KELVIN = 7500.0
+WB_SHADE_KELVIN = 8000.0
+WB_WARM_KELVIN = 4500.0
+
+# provisional: unity strengths as neutral; PA restores these (lamps later).
+SKY_STRENGTH = 1.0
+WORLD_CONTRIBUTION = 1.0
+PA_SKY_STRENGTH = 1.0
+PA_WORLD_CONTRIBUTION = 1.0
+
+# provisional: modest cool green-grey night fill; fades -6°…+6° sun elev.
+AIRGLOW_STRENGTH = 0.03
+AIRGLOW_TINT = (0.55, 0.65, 0.60, 1.0)
+AIRGLOW_FADE_LOW_DEG = -6.0
+AIRGLOW_FADE_HIGH_DEG = 6.0
+
+EXPOSURE = 0.0
+
 WORLD_NAME = "OuroSkies"
 WORLD_OWNED_KEY = "ouroskies_owned"
 NODE_SKY = "OuroSkies Sky"
-NODE_BACKGROUND = "OuroSkies Background"
+NODE_WB_MIX = "OuroSkies WB Mix"
+NODE_WB_COLOR = "OuroSkies WB Color"
+NODE_BG_CAMERA = "OuroSkies BG Camera"
+NODE_BG_LIGHT = "OuroSkies BG Light"
+NODE_LIGHT_PATH = "OuroSkies Light Path"
+NODE_MIX_CAMERA = "OuroSkies Mix Camera"
+NODE_AIRGLOW_COLOR = "OuroSkies Airglow Color"
+NODE_BG_AIRGLOW = "OuroSkies BG Airglow"
+NODE_ADD_AIRGLOW = "OuroSkies Add Airglow"
 NODE_OUTPUT = "OuroSkies Output"
+# Back-compat alias used by older comments
+NODE_BACKGROUND = NODE_BG_CAMERA

@@ -110,6 +110,10 @@ def evaluate(scene: bpy.types.Scene) -> None:
     sky.sun_elevation = elevation
     sky.sun_rotation = rotation
 
+    from . import looks
+
+    looks.sync_looks(scene)
+
 
 @persistent
 def frame_change_handler(scene: bpy.types.Scene) -> None:

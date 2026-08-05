@@ -257,9 +257,9 @@ End-user descriptions/tooltips on controls.
 
 Fill during implementation or a short follow-up; not product-scope forks:
 
-- Kelvin numbers for Cloudy / Shade / Warm  
-- Airglow default strength + default tint  
-- Physically Accurate numeric targets (Sky Strength, lamp W·m⁻², World Contribution neutral)  
+- Kelvin numbers for Cloudy / Shade / Warm — provisional in `ouroskies/defaults.py` (7500 / 8000 / 4500; Daylight 6500)  
+- Airglow default strength + default tint — provisional (`0.03`, cool green-grey)  
+- Physically Accurate numeric targets (Sky Strength, lamp W·m⁻², World Contribution neutral) — Sky/WC provisional `1.0`; lamps later  
 - Reset Atmosphere default values — provisional in `ouroskies/defaults.py` (Air/Dust/Ozone 1.0, Altitude 100 m)  
 - Confirm `sun_rotation = −az` on Cycles 5.2 sunrise → +X  
 - Previous-World snapshot strategy if user deletes it while active  

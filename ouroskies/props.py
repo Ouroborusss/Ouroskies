@@ -9,6 +9,7 @@ from bpy.props import (
     BoolProperty,
     EnumProperty,
     FloatProperty,
+    FloatVectorProperty,
     IntProperty,
     PointerProperty,
     StringProperty,
@@ -29,15 +30,23 @@ def _on_atmosphere_update(self, context) -> None:
 
 
 def _on_aim_update(self, context) -> None:
-    from . import aim
+    from . import aim, looks
 
     aim.sync_aim(context.scene)
+    looks.sync_looks(context.scene)
 
 
 def _on_place_date_update(self, context) -> None:
-    from . import place_date
+    from . import looks, place_date
 
     place_date.evaluate(context.scene)
+    looks.sync_looks(context.scene)
+
+
+def _on_looks_update(self, context) -> None:
+    from . import looks
+
+    looks.sync_looks(context.scene)
 
 
 class OuroSkiesSettings(PropertyGroup):
@@ -245,6 +254,65 @@ class OuroSkiesSettings(PropertyGroup):
         max=100000.0,
         subtype="DISTANCE",
         update=_on_atmosphere_update,
+    )
+
+    sky_strength: FloatProperty(
+        name="Sky Strength",
+        description="Visible sky / backdrop energy (camera Background Strength)",
+        default=defaults.SKY_STRENGTH,
+        soft_min=0.0,
+        soft_max=10.0,
+        min=0.0,
+        max=1000.0,
+        update=_on_looks_update,
+    )
+    world_contribution: FloatProperty(
+        name="World Contribution",
+        description="How hard the World lights the scene (non-camera / GI Background Strength)",
+        default=defaults.WORLD_CONTRIBUTION,
+        soft_min=0.0,
+        soft_max=10.0,
+        min=0.0,
+        max=1000.0,
+        update=_on_looks_update,
+    )
+    exposure: FloatProperty(
+        name="Exposure",
+        description="Color Management Exposure convenience mirror — never driven by eclipse FX",
+        default=defaults.EXPOSURE,
+        soft_min=-10.0,
+        soft_max=10.0,
+        update=_on_looks_update,
+    )
+    white_balance_kelvin: FloatProperty(
+        name="White Balance",
+        description="Kelvin tint applied after scatter (sky + later lamps)",
+        default=defaults.WB_DAYLIGHT_KELVIN,
+        soft_min=2000.0,
+        soft_max=10000.0,
+        min=1000.0,
+        max=40000.0,
+        update=_on_looks_update,
+    )
+    airglow_strength: FloatProperty(
+        name="Airglow",
+        description="Soft night-sky fill strength (fades with daylight)",
+        default=defaults.AIRGLOW_STRENGTH,
+        soft_min=0.0,
+        soft_max=1.0,
+        min=0.0,
+        max=10.0,
+        update=_on_looks_update,
+    )
+    airglow_tint: FloatVectorProperty(
+        name="Airglow Tint",
+        description="Artistic airglow color (default cool green-grey)",
+        subtype="COLOR",
+        size=4,
+        min=0.0,
+        max=1.0,
+        default=defaults.AIRGLOW_TINT,
+        update=_on_looks_update,
     )
 
 

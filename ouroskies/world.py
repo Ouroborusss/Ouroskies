@@ -76,7 +76,9 @@ def sync_atmosphere(scene: bpy.types.Scene) -> None:
 
 
 def rebuild_sky_graph(world: bpy.types.World, settings: bpy.types.PropertyGroup) -> None:
-    """Author canonical minimal tree: Sky (MS) → Background → World Output."""
+    """Author canonical Looks tree: Sky → WB → camera/light strengths → airglow → Output."""
+    from . import looks
+
     world.use_nodes = True
     node_tree = world.node_tree
     node_tree.nodes.clear()
@@ -84,22 +86,77 @@ def rebuild_sky_graph(world: bpy.types.World, settings: bpy.types.PropertyGroup)
     sky = node_tree.nodes.new("ShaderNodeTexSky")
     sky.name = defaults.NODE_SKY
     sky.label = defaults.NODE_SKY
-    sky.location = (-300.0, 0.0)
+    sky.location = (-700.0, 0.0)
     sky.sky_type = "MULTIPLE_SCATTERING"
     apply_settings_to_sky(sky, settings)
 
-    background = node_tree.nodes.new("ShaderNodeBackground")
-    background.name = defaults.NODE_BACKGROUND
-    background.label = defaults.NODE_BACKGROUND
-    background.location = (0.0, 0.0)
+    wb_color = node_tree.nodes.new("ShaderNodeRGB")
+    wb_color.name = defaults.NODE_WB_COLOR
+    wb_color.label = defaults.NODE_WB_COLOR
+    wb_color.location = (-700.0, -220.0)
+
+    wb_mix = node_tree.nodes.new("ShaderNodeMix")
+    wb_mix.name = defaults.NODE_WB_MIX
+    wb_mix.label = defaults.NODE_WB_MIX
+    wb_mix.location = (-480.0, 0.0)
+    wb_mix.data_type = "RGBA"
+    wb_mix.blend_type = "MULTIPLY"
+    wb_mix.inputs["Factor"].default_value = 1.0
+
+    bg_cam = node_tree.nodes.new("ShaderNodeBackground")
+    bg_cam.name = defaults.NODE_BG_CAMERA
+    bg_cam.label = "Sky Strength (camera)"
+    bg_cam.location = (-240.0, 80.0)
+
+    bg_light = node_tree.nodes.new("ShaderNodeBackground")
+    bg_light.name = defaults.NODE_BG_LIGHT
+    bg_light.label = "World Contribution (GI)"
+    bg_light.location = (-240.0, -80.0)
+
+    light_path = node_tree.nodes.new("ShaderNodeLightPath")
+    light_path.name = defaults.NODE_LIGHT_PATH
+    light_path.label = defaults.NODE_LIGHT_PATH
+    light_path.location = (-240.0, 240.0)
+
+    mix_cam = node_tree.nodes.new("ShaderNodeMixShader")
+    mix_cam.name = defaults.NODE_MIX_CAMERA
+    mix_cam.label = defaults.NODE_MIX_CAMERA
+    mix_cam.location = (0.0, 40.0)
+
+    glow_color = node_tree.nodes.new("ShaderNodeRGB")
+    glow_color.name = defaults.NODE_AIRGLOW_COLOR
+    glow_color.label = defaults.NODE_AIRGLOW_COLOR
+    glow_color.location = (-240.0, -260.0)
+
+    bg_glow = node_tree.nodes.new("ShaderNodeBackground")
+    bg_glow.name = defaults.NODE_BG_AIRGLOW
+    bg_glow.label = defaults.NODE_BG_AIRGLOW
+    bg_glow.location = (0.0, -220.0)
+
+    add_glow = node_tree.nodes.new("ShaderNodeAddShader")
+    add_glow.name = defaults.NODE_ADD_AIRGLOW
+    add_glow.label = defaults.NODE_ADD_AIRGLOW
+    add_glow.location = (220.0, 0.0)
 
     output = node_tree.nodes.new("ShaderNodeOutputWorld")
     output.name = defaults.NODE_OUTPUT
     output.label = defaults.NODE_OUTPUT
-    output.location = (300.0, 0.0)
+    output.location = (440.0, 0.0)
 
-    node_tree.links.new(sky.outputs["Color"], background.inputs["Color"])
-    node_tree.links.new(background.outputs["Background"], output.inputs["Surface"])
+    links = node_tree.links
+    links.new(sky.outputs["Color"], wb_mix.inputs["A"])
+    links.new(wb_color.outputs["Color"], wb_mix.inputs["B"])
+    links.new(wb_mix.outputs["Result"], bg_cam.inputs["Color"])
+    links.new(wb_mix.outputs["Result"], bg_light.inputs["Color"])
+    links.new(light_path.outputs["Is Camera Ray"], mix_cam.inputs["Factor"])
+    links.new(bg_light.outputs["Background"], mix_cam.inputs[1])
+    links.new(bg_cam.outputs["Background"], mix_cam.inputs[2])
+    links.new(glow_color.outputs["Color"], bg_glow.inputs["Color"])
+    links.new(mix_cam.outputs["Shader"], add_glow.inputs[0])
+    links.new(bg_glow.outputs["Background"], add_glow.inputs[1])
+    links.new(add_glow.outputs["Shader"], output.inputs["Surface"])
+
+    looks.sync_looks_to_world(settings, world)
 
 
 def _unique_world_name() -> str:
@@ -133,6 +190,9 @@ def enable(scene: bpy.types.Scene) -> bpy.types.World:
     existing = find_ouroskies_world(scene)
     if settings.is_enabled and existing is not None and scene.world == existing:
         rebuild_sky_graph(existing, settings)
+        from . import looks
+
+        looks.sync_looks(scene)
         if settings.aim_mode == "PLACE_DATE":
             from . import place_date
 
@@ -147,6 +207,9 @@ def enable(scene: bpy.types.Scene) -> bpy.types.World:
     rebuild_sky_graph(world, settings)
     scene.world = world
     settings.is_enabled = True
+    from . import looks
+
+    looks.sync_looks(scene)
     if settings.aim_mode == "PLACE_DATE":
         from . import place_date
 

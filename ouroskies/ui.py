@@ -82,7 +82,28 @@ class OUROSKIES_PT_looks(Panel):
         layout.operator("ouroskies.reset_atmosphere", text="Reset Atmosphere")
 
         layout.separator()
-        layout.label(text="Brightness, WB, airglow, stars — later", icon="INFO")
+        layout.label(text="Brightness")
+        layout.prop(settings, "sky_strength")
+        layout.prop(settings, "world_contribution")
+        layout.prop(settings, "exposure")
+
+        layout.separator()
+        layout.label(text="White Balance")
+        layout.prop(settings, "white_balance_kelvin", text="Kelvin")
+        row = layout.row(align=True)
+        row.operator("ouroskies.wb_preset", text="Daylight").preset = "DAYLIGHT"
+        row.operator("ouroskies.wb_preset", text="Cloudy").preset = "CLOUDY"
+        row = layout.row(align=True)
+        row.operator("ouroskies.wb_preset", text="Shade").preset = "SHADE"
+        row.operator("ouroskies.wb_preset", text="Warm").preset = "WARM"
+
+        layout.separator()
+        layout.label(text="Airglow")
+        layout.prop(settings, "airglow_strength", text="Strength")
+        layout.prop(settings, "airglow_tint", text="Tint")
+
+        layout.separator()
+        layout.label(text="Stars — later", icon="INFO")
 
 
 class OUROSKIES_PT_celestials(Panel):
