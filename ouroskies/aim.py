@@ -42,10 +42,10 @@ def orbit_to_alt_az(orbit_deg: float, path_azimuth_deg: float) -> tuple[float, f
 
 
 def direction_to_sky_radians(direction: Vector) -> tuple[float, float]:
-    """Inverse of Cycles Nishita sun vector → (sun_elevation, sun_rotation).
+    """Inverse map a toward-sun vector → (sun_elevation, sun_rotation).
 
-    Matches ``spherical_to_direction(elev - π/2, rot - π/2)`` in Cycles ``sky.h``
-    with +Y north / +X east: ``sun_rotation = -azimuth``.
+    Empirically matches the visible Nishita sun disc to our +Y-north lamps when
+    ``sun_rotation = +azimuth`` (not ``-azimuth``). Mirrored Y without this sign.
     """
     d = direction.normalized()
     elev = math.asin(max(-1.0, min(1.0, d.z)))
@@ -53,8 +53,8 @@ def direction_to_sky_radians(direction: Vector) -> tuple[float, float]:
     if abs(ce) < 1e-8:
         rot = 0.0
     else:
-        # x = -ce * sin(rot), y = ce * cos(rot)
-        rot = math.atan2(-d.x / ce, d.y / ce)
+        # x = ce * sin(az), y = ce * cos(az)  →  rot = +azimuth
+        rot = math.atan2(d.x / ce, d.y / ce)
     return elev, rot
 
 
