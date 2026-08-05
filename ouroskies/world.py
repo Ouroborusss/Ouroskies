@@ -151,16 +151,22 @@ def rebuild_sky_graph(world: bpy.types.World, settings: bpy.types.PropertyGroup)
     links.new(wb_color.outputs["Color"], wb_mix.inputs["B"])
     # Prefer typed Color sockets when present (Blender 4+/5 Mix node).
     result = wb_mix.outputs.get("Result_Color") or wb_mix.outputs.get("Result")
-    # Camera path gets binary-sun overlay; GI path stays WB sky only.
-    from . import celestials
-
-    celestials.wire_binary_sun_nodes(node_tree, result, bg_cam)
+    links.new(result, bg_cam.inputs["Color"])
     links.new(result, bg_light.inputs["Color"])
     links.new(light_path.outputs["Is Camera Ray"], mix_cam.inputs["Factor"])
     links.new(bg_light.outputs["Background"], mix_cam.inputs[1])
     links.new(bg_cam.outputs["Background"], mix_cam.inputs[2])
+
+    from . import celestials
+
+    # Binary sun: camera-look Background Add after sky mix (Strength = appearance).
+    sky_with_binary = celestials.wire_binary_sun_nodes(
+        node_tree,
+        light_path,
+        mix_cam.outputs["Shader"],
+    )
+    links.new(sky_with_binary, add_glow.inputs[0])
     links.new(glow_color.outputs["Color"], bg_glow.inputs["Color"])
-    links.new(mix_cam.outputs["Shader"], add_glow.inputs[0])
     links.new(bg_glow.outputs["Background"], add_glow.inputs[1])
     links.new(add_glow.outputs["Shader"], output.inputs["Surface"])
 

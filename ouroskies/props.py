@@ -440,12 +440,15 @@ class OuroSkiesSettings(PropertyGroup):
     )
     secondary_sun_strength: FloatProperty(
         name="Binary Strength",
-        description="Binary sun disk strength in the World sky (camera path)",
+        description=(
+            "How bright the binary sun looks in the sky (camera path). "
+            "Does not light the scene — look only, no second lamp"
+        ),
         default=defaults.SECONDARY_SUN_STRENGTH,
         soft_min=0.0,
-        soft_max=50.0,
+        soft_max=500.0,
         min=0.0,
-        max=1000.0,
+        max=10000.0,
         update=_on_celestials_update,
     )
     secondary_sun_color: FloatVectorProperty(

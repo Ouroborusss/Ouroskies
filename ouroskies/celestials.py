@@ -82,48 +82,6 @@ def _set_value_output(node, value: float) -> None:
     node.outputs[0].default_value = float(value)
 
 
-def _mix_color_sockets(mix: bpy.types.Node):
-    """Return (factor, a, b, result) Color/Float sockets for ShaderNodeMix RGBA.
-
-    Mix keeps hidden float/vector/color variants; name lookup can hit the wrong
-    (empty/hidden) socket. Prefer enabled RGBA sockets.
-    """
-    factor = None
-    a = b = result = None
-    for socket in mix.inputs:
-        if getattr(socket, "enabled", True) is False:
-            continue
-        name = socket.name
-        if name in {"Factor", "Fac"} and socket.type == "VALUE":
-            factor = socket
-        elif name == "A" and socket.type in {"RGBA", "VECTOR", "VALUE"}:
-            if a is None or socket.type == "RGBA":
-                a = socket
-        elif name == "B" and socket.type in {"RGBA", "VECTOR", "VALUE"}:
-            if b is None or socket.type == "RGBA":
-                b = socket
-    for socket in mix.outputs:
-        if getattr(socket, "enabled", True) is False:
-            continue
-        if socket.name in {"Result", "Result_Color"} and socket.type in {
-            "RGBA",
-            "VECTOR",
-            "VALUE",
-        }:
-            if result is None or socket.type == "RGBA":
-                result = socket
-    # Hard indices from Blender Mix Color layout if discovery failed.
-    if factor is None and len(mix.inputs) > 0:
-        factor = mix.inputs[0]
-    if a is None and len(mix.inputs) > 6:
-        a = mix.inputs[6]
-    if b is None and len(mix.inputs) > 7:
-        b = mix.inputs[7]
-    if result is None and len(mix.outputs) > 2:
-        result = mix.outputs[2]
-    return factor, a, b, result
-
-
 def sync_binary_sun_to_world(settings, owned: bpy.types.World) -> None:
     """Update binary-sun overlay uniforms (direction, radius, color, strength)."""
     if owned is None or owned.node_tree is None:
@@ -175,14 +133,14 @@ def sync_celestials(scene: bpy.types.Scene) -> None:
 
 def wire_binary_sun_nodes(
     node_tree: bpy.types.NodeTree,
-    wb_color_socket,
-    bg_cam: bpy.types.ShaderNode,
-) -> None:
-    """Insert camera-path binary sun disk between WB result and BG Camera Color.
+    light_path: bpy.types.ShaderNode,
+    base_shader_socket,
+) -> bpy.types.NodeSocket:
+    """Add a camera-only binary sun Background after the sky Mix Shader.
 
-    View ray = −Incoming; soft disk from angular radius. Contribution =
-    ``color * soft_fac * strength``, added onto the sky (look-first; GI path
-    stays WB-only).
+    Strength is Background Strength × sharp disk mask × Is Camera Ray — it
+    controls how bright the disk *looks*, not scene lighting. Returns the
+    combined shader socket (sky + binary) for further Add (airglow).
     """
     nodes = node_tree.nodes
     links = node_tree.links
@@ -190,12 +148,12 @@ def wire_binary_sun_nodes(
     geo = nodes.new("ShaderNodeNewGeometry")
     geo.name = defaults.NODE_SEC_GEO
     geo.label = defaults.NODE_SEC_GEO
-    geo.location = (-900.0, 380.0)
+    geo.location = (-900.0, 420.0)
 
     view = nodes.new("ShaderNodeVectorMath")
     view.name = defaults.NODE_SEC_VIEW
     view.label = defaults.NODE_SEC_VIEW
-    view.location = (-720.0, 380.0)
+    view.location = (-720.0, 420.0)
     view.operation = "SCALE"
     if len(view.inputs) > 3:
         view.inputs[3].default_value = -1.0
@@ -205,95 +163,99 @@ def wire_binary_sun_nodes(
     direction = nodes.new("ShaderNodeCombineXYZ")
     direction.name = defaults.NODE_SEC_DIR
     direction.label = defaults.NODE_SEC_DIR
-    direction.location = (-720.0, 540.0)
+    direction.location = (-720.0, 580.0)
 
     dot = nodes.new("ShaderNodeVectorMath")
     dot.name = defaults.NODE_SEC_DOT
     dot.label = defaults.NODE_SEC_DOT
-    dot.location = (-540.0, 420.0)
+    dot.location = (-540.0, 460.0)
     dot.operation = "DOT_PRODUCT"
-
-    acos = nodes.new("ShaderNodeMath")
-    acos.name = defaults.NODE_SEC_ACOS
-    acos.label = defaults.NODE_SEC_ACOS
-    acos.location = (-360.0, 420.0)
-    acos.operation = "ARCCOSINE"
 
     clamp_dot = nodes.new("ShaderNodeClamp")
     clamp_dot.name = defaults.NODE_SEC_DOT + " Clamp"
     clamp_dot.label = "Sec Dot Clamp"
-    clamp_dot.location = (-450.0, 420.0)
+    clamp_dot.location = (-450.0, 460.0)
     clamp_dot.inputs["Min"].default_value = -1.0
     clamp_dot.inputs["Max"].default_value = 1.0
+
+    acos = nodes.new("ShaderNodeMath")
+    acos.name = defaults.NODE_SEC_ACOS
+    acos.label = defaults.NODE_SEC_ACOS
+    acos.location = (-360.0, 460.0)
+    acos.operation = "ARCCOSINE"
 
     radius = nodes.new("ShaderNodeValue")
     radius.name = defaults.NODE_SEC_RADIUS
     radius.label = defaults.NODE_SEC_RADIUS
-    radius.location = (-360.0, 540.0)
+    radius.location = (-360.0, 600.0)
     radius.outputs[0].default_value = math.radians(defaults.SECONDARY_SUN_SIZE_DEG * 0.5)
 
-    # Soft disk: angle 0→radius maps to fac 1→0
+    # Hard limb: fac stays ~1 until 85% of radius, then falls to 0.
+    limb = nodes.new("ShaderNodeMath")
+    limb.name = defaults.NODE_SEC_MAP + " Limb"
+    limb.label = "Sec Limb Start"
+    limb.location = (-180.0, 560.0)
+    limb.operation = "MULTIPLY"
+    limb.inputs[1].default_value = 0.85
+
     disk_map = nodes.new("ShaderNodeMapRange")
     disk_map.name = defaults.NODE_SEC_MAP
     disk_map.label = defaults.NODE_SEC_MAP
     disk_map.location = (-180.0, 420.0)
     disk_map.clamp = True
-    disk_map.inputs["From Min"].default_value = 0.0
     disk_map.inputs["To Min"].default_value = 1.0
     disk_map.inputs["To Max"].default_value = 0.0
 
     color = nodes.new("ShaderNodeRGB")
     color.name = defaults.NODE_SEC_COLOR
     color.label = defaults.NODE_SEC_COLOR
-    color.location = (-180.0, 620.0)
+    color.location = (20.0, 620.0)
     color.outputs[0].default_value = defaults.SECONDARY_SUN_COLOR
 
     strength = nodes.new("ShaderNodeValue")
     strength.name = defaults.NODE_SEC_STRENGTH
     strength.label = defaults.NODE_SEC_STRENGTH
-    strength.location = (-180.0, 260.0)
+    strength.location = (20.0, 280.0)
     strength.outputs[0].default_value = 0.0
 
     fac_strength = nodes.new("ShaderNodeMath")
     fac_strength.name = defaults.NODE_SEC_MUL
     fac_strength.label = "Sec Fac×Strength"
-    fac_strength.location = (20.0, 360.0)
+    fac_strength.location = (200.0, 400.0)
     fac_strength.operation = "MULTIPLY"
 
-    # color_rgb * (fac * strength) via Vector Math SCALE
-    scaled = nodes.new("ShaderNodeVectorMath")
-    scaled.name = defaults.NODE_SEC_MUL + " Scale"
-    scaled.label = "Sec Color×Scale"
-    scaled.location = (200.0, 480.0)
-    scaled.operation = "SCALE"
+    # Zero contribution on non-camera rays (no GI / light from binary).
+    cam_mul = nodes.new("ShaderNodeMath")
+    cam_mul.name = defaults.NODE_SEC_CAM_MUL
+    cam_mul.label = defaults.NODE_SEC_CAM_MUL
+    cam_mul.location = (380.0, 400.0)
+    cam_mul.operation = "MULTIPLY"
 
-    add = nodes.new("ShaderNodeMix")
+    bg = nodes.new("ShaderNodeBackground")
+    bg.name = defaults.NODE_SEC_BG
+    bg.label = "Binary Sun (look)"
+    bg.location = (560.0, 480.0)
+
+    add = nodes.new("ShaderNodeAddShader")
     add.name = defaults.NODE_SEC_ADD
     add.label = defaults.NODE_SEC_ADD
-    add.location = (-240.0, 160.0)
-    add.data_type = "RGBA"
-    add.blend_type = "ADD"
-    factor_sock, a_sock, b_sock, result_sock = _mix_color_sockets(add)
-    if factor_sock is not None:
-        factor_sock.default_value = 1.0
+    add.location = (200.0, 80.0)
 
     links.new(geo.outputs["Incoming"], view.inputs[0])
     links.new(view.outputs["Vector"], dot.inputs[0])
     links.new(direction.outputs["Vector"], dot.inputs[1])
     links.new(dot.outputs["Value"], clamp_dot.inputs["Value"])
     links.new(clamp_dot.outputs["Result"], acos.inputs[0])
+    links.new(radius.outputs[0], limb.inputs[0])
     links.new(acos.outputs["Value"], disk_map.inputs["Value"])
+    links.new(limb.outputs["Value"], disk_map.inputs["From Min"])
     links.new(radius.outputs[0], disk_map.inputs["From Max"])
     links.new(disk_map.outputs["Result"], fac_strength.inputs[0])
     links.new(strength.outputs[0], fac_strength.inputs[1])
-    links.new(color.outputs["Color"], scaled.inputs[0])
-    if len(scaled.inputs) > 3:
-        links.new(fac_strength.outputs["Value"], scaled.inputs[3])
-    elif scaled.inputs.get("Scale") is not None:
-        links.new(fac_strength.outputs["Value"], scaled.inputs["Scale"])
-    if a_sock is not None:
-        links.new(wb_color_socket, a_sock)
-    if b_sock is not None:
-        links.new(scaled.outputs["Vector"], b_sock)
-    if result_sock is not None:
-        links.new(result_sock, bg_cam.inputs["Color"])
+    links.new(fac_strength.outputs["Value"], cam_mul.inputs[0])
+    links.new(light_path.outputs["Is Camera Ray"], cam_mul.inputs[1])
+    links.new(color.outputs["Color"], bg.inputs["Color"])
+    links.new(cam_mul.outputs["Value"], bg.inputs["Strength"])
+    links.new(base_shader_socket, add.inputs[0])
+    links.new(bg.outputs["Background"], add.inputs[1])
+    return add.outputs["Shader"]

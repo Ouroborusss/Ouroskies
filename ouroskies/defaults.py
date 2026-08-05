@@ -83,7 +83,7 @@ SECONDARY_SUN_ENABLED = False
 SECONDARY_SUN_SEPARATION_DEG = 5.0
 SECONDARY_SUN_ANGLE_DEG = 0.0
 SECONDARY_SUN_SIZE_DEG = 0.545
-SECONDARY_SUN_STRENGTH = 12.0
+SECONDARY_SUN_STRENGTH = 80.0
 SECONDARY_SUN_COLOR = (1.0, 0.82, 0.55, 1.0)
 
 WORLD_NAME = "OuroSkies"
@@ -110,6 +110,8 @@ NODE_SEC_MAP = "OuroSkies Sec Map"
 NODE_SEC_COLOR = "OuroSkies Sec Color"
 NODE_SEC_STRENGTH = "OuroSkies Sec Strength"
 NODE_SEC_MUL = "OuroSkies Sec Mul"
+NODE_SEC_BG = "OuroSkies Sec BG"
 NODE_SEC_ADD = "OuroSkies Sec Add"
+NODE_SEC_CAM_MUL = "OuroSkies Sec Cam Mul"
 # Back-compat alias used by older comments
 NODE_BACKGROUND = NODE_BG_CAMERA

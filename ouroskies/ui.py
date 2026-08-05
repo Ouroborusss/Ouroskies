@@ -159,7 +159,7 @@ class OUROSKIES_PT_celestials(Panel):
             col.prop(settings, "secondary_sun_strength", text="Strength")
             layout.prop(settings, "secondary_sun_color", text="Color")
             layout.label(
-                text="World sky look only — no lamp",
+                text="Strength = how bright it looks (not scene light)",
                 icon="INFO",
             )
 
