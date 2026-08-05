@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-import math
-
 import bpy
 from mathutils import Vector
 
@@ -16,57 +14,46 @@ LAMP_KIND_SUN = "sun"
 LAMP_KIND_MOON = "moon"
 
 
-def _alt_az_to_direction(altitude_deg: float, azimuth_deg: float) -> Vector:
-    from .aim import alt_az_to_direction
+def _sun_aim_direction(settings) -> tuple[Vector, float, float]:
+    """Return (toward-sun direction, true altitude deg, true azimuth deg)."""
+    from .aim import alt_az_to_direction, orbit_to_alt_az
 
-    return alt_az_to_direction(altitude_deg, azimuth_deg)
+    if settings.aim_mode == "MANUAL":
+        # Same orbit parameterization as the moon (+180°) — do not aim from Sky RNA.
+        orbit = float(settings.sun_elevation_deg)
+        path_az = float(settings.sun_azimuth_deg)
+        direction = alt_az_to_direction(orbit, path_az)
+        alt, az = orbit_to_alt_az(orbit, path_az)
+        return direction, alt, az
 
-
-def _direction_from_sky(sky: bpy.types.ShaderNodeTexSky) -> Vector:
-    """Match Cycles/EEVEE Nishita sun vector from Sky Texture RNA.
-
-    ``spherical_to_direction(elev - π/2, rot - π/2)`` — same as Cycles ``sky.h``.
-    """
-    theta = float(sky.sun_elevation) - math.pi / 2.0
-    phi = float(sky.sun_rotation) - math.pi / 2.0
-    return Vector(
-        (
-            math.sin(theta) * math.cos(phi),
-            math.sin(theta) * math.sin(phi),
-            math.cos(theta),
-        )
-    ).normalized()
+    alt = float(settings.evaluated_sun_elevation_deg)
+    az = float(settings.evaluated_sun_azimuth_deg)
+    return alt_az_to_direction(alt, az), alt, az
 
 
-def _current_sun_alt_az(settings) -> tuple[float, float]:
-    if settings.aim_mode == "PLACE_DATE":
-        return (
-            float(settings.evaluated_sun_elevation_deg),
-            float(settings.evaluated_sun_azimuth_deg),
-        )
-    # Manual Elevation is a 360° orbit angle — fold to true alt/az for lamps/disk/UI.
-    from .aim import orbit_to_alt_az
+def _moon_aim_direction(settings) -> tuple[Vector, float, float]:
+    """Return (toward-moon direction, true altitude deg, true azimuth deg)."""
+    from .aim import alt_az_to_direction, orbit_to_alt_az
 
-    return orbit_to_alt_az(float(settings.sun_elevation_deg), float(settings.sun_azimuth_deg))
+    if settings.aim_mode == "MANUAL":
+        orbit = float(settings.sun_elevation_deg) + 180.0
+        path_az = float(settings.sun_azimuth_deg)
+        direction = alt_az_to_direction(orbit, path_az)
+        alt, az = orbit_to_alt_az(orbit, path_az)
+        if abs(settings.moon_azimuth_deg - az) > 1e-6:
+            settings.moon_azimuth_deg = az
+        if abs(settings.moon_elevation_deg - alt) > 1e-6:
+            settings.moon_elevation_deg = alt
+        return direction, alt, az
+
+    alt, az = _refresh_moon_from_place(settings)
+    return alt_az_to_direction(alt, az), alt, az
 
 
 def evaluate_moon_aim(settings) -> tuple[float, float]:
-    """Moon alt/az for lamps + disk.
-
-    Place/Date uses Meeus ephemeris. Manual places the moon 180° along the same
-    elevation orbit so sun and moon rise/set on opposite horizons.
-    """
-    if settings.aim_mode == "MANUAL":
-        from .aim import orbit_to_alt_az
-
-        moon_orbit = float(settings.sun_elevation_deg) + 180.0
-        moon_el, moon_az = orbit_to_alt_az(moon_orbit, float(settings.sun_azimuth_deg))
-        if abs(settings.moon_azimuth_deg - moon_az) > 1e-6:
-            settings.moon_azimuth_deg = moon_az
-        if abs(settings.moon_elevation_deg - moon_el) > 1e-6:
-            settings.moon_elevation_deg = moon_el
-        return moon_el, moon_az
-    return _refresh_moon_from_place(settings)
+    """Moon alt/az for UI / disk (direction aiming uses ``_moon_aim_direction``)."""
+    _direction, alt, az = _moon_aim_direction(settings)
+    return alt, az
 
 
 def _refresh_moon_from_place(settings) -> tuple[float, float]:
@@ -259,40 +246,28 @@ def sync_lamps(scene: bpy.types.Scene) -> None:
     settings = scene.ouroskies
     wb = looks.kelvin_to_rgb(settings.white_balance_kelvin)
 
-    sun_direction = None
-    if settings.is_enabled:
-        from . import world as world_mod
-
-        owned = world_mod.find_ouroskies_world(scene)
-        if owned is not None:
-            sky = world_mod.find_sky_node(owned)
-            if sky is not None:
-                sun_direction = _direction_from_sky(sky)
+    sun_direction, sun_alt, _sun_az = _sun_aim_direction(settings)
+    moon_direction, moon_el, moon_az = _moon_aim_direction(settings)
+    moon_factor = _horizon_factor(moon_el)
+    sun_factor = _horizon_factor(sun_alt)
 
     sun_obj = find_lamp_object(scene, LAMP_KIND_SUN)
     settings.has_sun_lamp = sun_obj is not None
     if sun_obj is not None:
         settings.sun_lamp_name = sun_obj.name
     if sun_obj is not None and sun_obj.data is not None:
-        alt, az = _current_sun_alt_az(settings)
-        direction = sun_direction if sun_direction is not None else _alt_az_to_direction(alt, az)
-        _aim_sun_object(sun_obj, direction)
+        _aim_sun_object(sun_obj, sun_direction)
         sun_obj.data.color = wb
-        factor = _horizon_factor(alt)
-        sun_obj.data.energy = settings.sun_lamp_energy * factor
-        # Keep the object visible; energy fade is enough below the horizon.
+        sun_obj.data.energy = settings.sun_lamp_energy * sun_factor
         sun_obj.hide_render = False
         sun_obj.hide_viewport = False
-
-    moon_el, moon_az = evaluate_moon_aim(settings)
-    moon_factor = _horizon_factor(moon_el)
 
     moon_obj = find_lamp_object(scene, LAMP_KIND_MOON)
     settings.has_moon_lamp = moon_obj is not None
     if moon_obj is not None:
         settings.moon_lamp_name = moon_obj.name
     if moon_obj is not None and moon_obj.data is not None:
-        _aim_sun_object(moon_obj, _alt_az_to_direction(moon_el, moon_az))
+        _aim_sun_object(moon_obj, moon_direction)
         moon_obj.data.color = (
             wb[0] * 0.85,
             wb[1] * 0.92,
@@ -324,11 +299,14 @@ def _aim_sun_object(obj: bpy.types.Object, direction: Vector) -> None:
     """Place the SUN light along ``direction``; emit toward the origin (-Z local)."""
     direction = direction.normalized()
     obj.rotation_mode = "QUATERNION"
-    # Clear parenting so our transform is world-space.
+    # Clear parenting / constraints so our transform is world-space.
     if obj.parent is not None:
         obj.parent = None
+    if obj.constraints:
+        for constraint in list(obj.constraints):
+            obj.constraints.remove(constraint)
     obj.location = direction * defaults.LAMP_DISTANCE
-    # Light travels opposite the toward-sun vector.
+    # Light travels opposite the toward-body vector (same for sun and moon lamps).
     obj.rotation_quaternion = (-direction).to_track_quat("-Z", "Y")
     obj.hide_viewport = False
     # Lamps light the scene; the moon disk is the visible celestial.
