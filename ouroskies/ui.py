@@ -162,7 +162,6 @@ class OUROSKIES_PT_setup(Panel):
     bl_region_type = "UI"
     bl_category = "OuroSkies"
     bl_order = 4
-    bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):
         layout = self.layout
@@ -176,24 +175,30 @@ class OUROSKIES_PT_setup(Panel):
 
         layout.separator()
         layout.label(text="Lamps")
+        from . import lamps as lamps_mod
+
+        sun_obj = lamps_mod.find_lamp_object(context.scene, lamps_mod.LAMP_KIND_SUN)
+        moon_obj = lamps_mod.find_lamp_object(context.scene, lamps_mod.LAMP_KIND_MOON)
+
         row = layout.row(align=True)
         row.operator("ouroskies.add_sun_lamp", text="Add Sun Lamp")
         row.operator("ouroskies.remove_sun_lamp", text="Remove")
-        if settings.has_sun_lamp:
-            layout.prop(settings, "sun_lamp_energy")
-            layout.label(text="Sun lamp fades out below the horizon", icon="INFO")
+        if sun_obj is not None:
+            layout.prop(settings, "sun_lamp_energy", text="Sun Strength")
+            layout.label(text="Strength fades below the horizon", icon="INFO")
         row = layout.row(align=True)
         row.operator("ouroskies.add_moon_lamp", text="Add Moon Lamp")
         row.operator("ouroskies.remove_moon_lamp", text="Remove")
-        if settings.has_moon_lamp:
-            layout.prop(settings, "moon_lamp_energy")
-            layout.label(
-                text=(
-                    f"Moon aim  elev {settings.moon_elevation_deg:.1f}°"
-                    f"  az {settings.moon_azimuth_deg:.1f}°"
-                ),
-                icon="INFO",
-            )
+        if moon_obj is not None:
+            layout.prop(settings, "moon_lamp_energy", text="Moon Strength")
+            elev = settings.moon_elevation_deg
+            if elev >= 0.0:
+                note = (
+                    f"Moon elev {elev:.1f}°  az {settings.moon_azimuth_deg:.1f}°"
+                )
+            else:
+                note = f"Moon below horizon ({elev:.1f}°) — strength faded"
+            layout.label(text=note, icon="INFO")
 
         layout.separator()
         layout.operator("ouroskies.rebuild_sky_graph", text="Rebuild Sky Graph")

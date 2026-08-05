@@ -12,6 +12,9 @@ def register() -> None:
     ops.register()
     ui.register()
     place_date.register_handlers()
+    from . import lamps
+
+    lamps.resync_all_scenes()
 
 
 def unregister() -> None:

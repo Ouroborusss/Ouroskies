@@ -7,7 +7,7 @@ from __future__ import annotations
 import math
 
 import bpy
-from mathutils import Euler, Vector
+from mathutils import Vector
 
 from . import defaults, looks
 
@@ -25,6 +25,22 @@ def _alt_az_to_direction(altitude_deg: float, azimuth_deg: float) -> Vector:
             math.cos(alt) * math.sin(az),
             math.cos(alt) * math.cos(az),
             math.sin(alt),
+        )
+    ).normalized()
+
+
+def _direction_from_sky(sky: bpy.types.ShaderNodeTexSky) -> Vector:
+    """Match Cycles/EEVEE Nishita sun vector from Sky Texture RNA.
+
+    ``spherical_to_direction(elev - π/2, rot - π/2)`` — same as Cycles ``sky.h``.
+    """
+    theta = float(sky.sun_elevation) - math.pi / 2.0
+    phi = float(sky.sun_rotation) - math.pi / 2.0
+    return Vector(
+        (
+            math.sin(theta) * math.cos(phi),
+            math.sin(theta) * math.sin(phi),
+            math.cos(theta),
         )
     ).normalized()
 
@@ -88,6 +104,14 @@ def find_lamp_object(scene: bpy.types.Scene, kind: str) -> bpy.types.Object | No
     for candidate in bpy.data.objects:
         if _is_owned_lamp(candidate, kind):
             return candidate
+    # Recover lamps created before tagging / after script reload by stable name.
+    fallback = defaults.SUN_LAMP_NAME if kind == LAMP_KIND_SUN else defaults.MOON_LAMP_NAME
+    for candidate in bpy.data.objects:
+        if candidate.type != "LIGHT":
+            continue
+        if candidate.name == fallback or candidate.name.startswith(fallback + "."):
+            _tag_lamp(candidate, kind)
+            return candidate
     return None
 
 
@@ -96,6 +120,14 @@ def settings_lamp_name(scene: bpy.types.Scene, kind: str) -> str:
     if kind == LAMP_KIND_SUN:
         return settings.sun_lamp_name or defaults.SUN_LAMP_NAME
     return settings.moon_lamp_name or defaults.MOON_LAMP_NAME
+
+
+def _tag_lamp(obj: bpy.types.Object, kind: str) -> None:
+    obj[defaults.LAMP_OWNED_KEY] = True
+    obj[defaults.LAMP_KIND_KEY] = kind
+    if obj.data is not None:
+        obj.data[defaults.LAMP_OWNED_KEY] = True
+        obj.data[defaults.LAMP_KIND_KEY] = kind
 
 
 def _unique_light_name(base: str) -> str:
@@ -141,10 +173,9 @@ def add_lamp(scene: bpy.types.Scene, kind: str) -> bpy.types.Object:
     light.angle = defaults.SUN_LAMP_ANGLE_RAD
 
     obj = bpy.data.objects.new(object_name, light)
-    obj[defaults.LAMP_OWNED_KEY] = True
-    obj[defaults.LAMP_KIND_KEY] = kind
+    _tag_lamp(obj, kind)
 
-    # Prefer the scene's active view layer collection; fall back to scene collection.
+    # Prefer the scene's collection; fall back to context scene collection.
     try:
         scene.collection.objects.link(obj)
     except RuntimeError:
@@ -210,21 +241,38 @@ def sync_lamps(scene: bpy.types.Scene) -> None:
     settings = scene.ouroskies
     wb = looks.kelvin_to_rgb(settings.white_balance_kelvin)
 
+    sun_direction = None
+    if settings.is_enabled:
+        from . import world as world_mod
+
+        owned = world_mod.find_ouroskies_world(scene)
+        if owned is not None:
+            sky = world_mod.find_sky_node(owned)
+            if sky is not None:
+                sun_direction = _direction_from_sky(sky)
+
     sun_obj = find_lamp_object(scene, LAMP_KIND_SUN)
     settings.has_sun_lamp = sun_obj is not None
+    if sun_obj is not None:
+        settings.sun_lamp_name = sun_obj.name
     if sun_obj is not None and sun_obj.data is not None:
         alt, az = _current_sun_alt_az(settings)
-        _aim_sun_object(sun_obj, alt, az)
+        direction = sun_direction if sun_direction is not None else _alt_az_to_direction(alt, az)
+        _aim_sun_object(sun_obj, direction)
         sun_obj.data.color = wb
         factor = _horizon_factor(alt)
         sun_obj.data.energy = settings.sun_lamp_energy * factor
-        sun_obj.hide_render = factor <= 0.0
+        # Keep the object visible; energy fade is enough below the horizon.
+        sun_obj.hide_render = False
+        sun_obj.hide_viewport = False
 
     moon_obj = find_lamp_object(scene, LAMP_KIND_MOON)
     settings.has_moon_lamp = moon_obj is not None
+    if moon_obj is not None:
+        settings.moon_lamp_name = moon_obj.name
     if moon_obj is not None and moon_obj.data is not None:
         alt, az = _refresh_moon_from_place(settings)
-        _aim_sun_object(moon_obj, alt, az)
+        _aim_sun_object(moon_obj, _alt_az_to_direction(alt, az))
         moon_obj.data.color = (
             wb[0] * 0.85,
             wb[1] * 0.92,
@@ -232,7 +280,8 @@ def sync_lamps(scene: bpy.types.Scene) -> None:
         )
         factor = _horizon_factor(alt)
         moon_obj.data.energy = settings.moon_lamp_energy * factor
-        moon_obj.hide_render = factor <= 0.0
+        moon_obj.hide_render = False
+        moon_obj.hide_viewport = False
 
     owned_world = None
     if settings.is_enabled:
@@ -242,14 +291,28 @@ def sync_lamps(scene: bpy.types.Scene) -> None:
     _apply_sun_extraction(owned_world, sun_obj is not None)
 
 
-def _aim_sun_object(obj: bpy.types.Object, altitude_deg: float, azimuth_deg: float) -> None:
-    direction = _alt_az_to_direction(altitude_deg, azimuth_deg)
-    # Place lamp along the sky direction; illuminate toward the origin (-Z local).
+def _aim_sun_object(obj: bpy.types.Object, direction: Vector) -> None:
+    """Place the SUN light along ``direction``; emit toward the origin (-Z local)."""
+    direction = direction.normalized()
+    obj.rotation_mode = "QUATERNION"
+    # Clear parenting so our transform is world-space.
+    if obj.parent is not None:
+        obj.parent = None
     obj.location = direction * defaults.LAMP_DISTANCE
-    elev = math.radians(altitude_deg)
-    az = math.radians(azimuth_deg)
-    obj.rotation_euler = Euler((elev - math.pi / 2.0, 0.0, -az), "XYZ")
+    # Light travels opposite the toward-sun vector.
+    obj.rotation_quaternion = (-direction).to_track_quat("-Z", "Y")
     obj.hide_viewport = False
+
+
+def resync_all_scenes() -> None:
+    """Re-discover and aim lamps after register / script reload."""
+    for scene in bpy.data.scenes:
+        if not hasattr(scene, "ouroskies"):
+            continue
+        try:
+            sync_lamps(scene)
+        except Exception:
+            continue
 
 
 def apply_pa_lamp_energies(scene: bpy.types.Scene) -> None:

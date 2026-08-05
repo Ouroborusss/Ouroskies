@@ -72,18 +72,17 @@ def evaluate(scene: bpy.types.Scene) -> None:
 
     from . import lamps, looks
 
+    # Write Sky Texture before lamp sync — sun lamp aims from sky RNA.
+    owned = world.find_ouroskies_world(scene)
+    if owned is not None:
+        sky = world.find_sky_node(owned)
+        if sky is not None:
+            elevation, rotation = aim.alt_az_degrees_to_sky_radians(sun_el, sun_az)
+            sky.sun_elevation = elevation
+            sky.sun_rotation = rotation
+
     looks.sync_looks(scene)
     lamps.sync_lamps(scene)
-
-    owned = world.find_ouroskies_world(scene)
-    if owned is None:
-        return
-    sky = world.find_sky_node(owned)
-    if sky is None:
-        return
-    elevation, rotation = aim.alt_az_degrees_to_sky_radians(sun_el, sun_az)
-    sky.sun_elevation = elevation
-    sky.sun_rotation = rotation
 
 
 @persistent

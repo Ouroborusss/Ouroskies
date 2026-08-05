@@ -333,8 +333,8 @@ class OuroSkiesSettings(PropertyGroup):
     sun_lamp_name: StringProperty(default="", options={"HIDDEN"})
     moon_lamp_name: StringProperty(default="", options={"HIDDEN"})
     sun_lamp_energy: FloatProperty(
-        name="Sun Lamp Energy",
-        description="Energy of the synced Sun lamp (W/m² scale in Blender Sun lights)",
+        name="Sun Strength",
+        description="Strength of the synced Sun lamp (Blender Sun light energy)",
         default=defaults.SUN_LAMP_ENERGY,
         soft_min=0.0,
         soft_max=20.0,
@@ -343,11 +343,11 @@ class OuroSkiesSettings(PropertyGroup):
         update=_on_looks_update,
     )
     moon_lamp_energy: FloatProperty(
-        name="Moon Lamp Energy",
-        description="Energy of the synced Moon lamp",
+        name="Moon Strength",
+        description="Strength of the synced Moon lamp (fades when the moon is below the horizon)",
         default=defaults.MOON_LAMP_ENERGY,
         soft_min=0.0,
-        soft_max=1.0,
+        soft_max=2.0,
         min=0.0,
         max=100.0,
         update=_on_looks_update,
