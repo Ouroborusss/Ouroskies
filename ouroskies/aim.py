@@ -49,6 +49,9 @@ def sync_aim(scene: bpy.types.Scene) -> None:
     """Push aim onto the Sky Texture for the active Aim mode."""
     settings = scene.ouroskies
     if not settings.is_enabled:
+        from . import lamps
+
+        lamps.sync_lamps(scene)
         return
     if settings.aim_mode == "PLACE_DATE":
         from . import place_date
@@ -56,9 +59,10 @@ def sync_aim(scene: bpy.types.Scene) -> None:
         place_date.evaluate(scene)
         return
     owned = world.find_ouroskies_world(scene)
-    if owned is None:
-        return
-    sky = world.find_sky_node(owned)
-    if sky is None:
-        return
-    apply_manual_aim_to_sky(sky, settings)
+    if owned is not None:
+        sky = world.find_sky_node(owned)
+        if sky is not None:
+            apply_manual_aim_to_sky(sky, settings)
+    from . import lamps
+
+    lamps.sync_lamps(scene)

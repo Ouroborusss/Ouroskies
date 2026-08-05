@@ -100,6 +100,11 @@ def evaluate(scene: bpy.types.Scene) -> None:
     settings.moon_elevation_deg = moon_el
     settings.status_place, settings.status_when = format_status(settings, when_utc)
 
+    from . import lamps, looks
+
+    looks.sync_looks(scene)
+    lamps.sync_lamps(scene)
+
     owned = world.find_ouroskies_world(scene)
     if owned is None:
         return
@@ -109,10 +114,6 @@ def evaluate(scene: bpy.types.Scene) -> None:
     elevation, rotation = aim.alt_az_degrees_to_sky_radians(sun_el, sun_az)
     sky.sun_elevation = elevation
     sky.sun_rotation = rotation
-
-    from . import looks
-
-    looks.sync_looks(scene)
 
 
 @persistent

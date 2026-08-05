@@ -106,6 +106,9 @@ def physically_accurate(scene: bpy.types.Scene) -> None:
     settings.airglow_strength = defaults.AIRGLOW_STRENGTH
     settings.airglow_tint = defaults.AIRGLOW_TINT
     sync_looks(scene)
+    from . import lamps
+
+    lamps.apply_pa_lamp_energies(scene)
 
 
 def set_wb_preset(scene: bpy.types.Scene, preset: str) -> None:
@@ -118,3 +121,6 @@ def set_wb_preset(scene: bpy.types.Scene, preset: str) -> None:
     }.get(preset, defaults.WB_DAYLIGHT_KELVIN)
     settings.white_balance_kelvin = kelvin
     sync_looks(scene)
+    from . import lamps
+
+    lamps.sync_lamps(scene)

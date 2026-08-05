@@ -190,13 +190,14 @@ def enable(scene: bpy.types.Scene) -> bpy.types.World:
     existing = find_ouroskies_world(scene)
     if settings.is_enabled and existing is not None and scene.world == existing:
         rebuild_sky_graph(existing, settings)
-        from . import looks
+        from . import lamps, looks
 
         looks.sync_looks(scene)
         if settings.aim_mode == "PLACE_DATE":
             from . import place_date
 
             place_date.evaluate(scene)
+        lamps.sync_lamps(scene)
         return existing
 
     previous = scene.world
@@ -214,13 +215,20 @@ def enable(scene: bpy.types.Scene) -> bpy.types.World:
         from . import place_date
 
         place_date.evaluate(scene)
+    from . import lamps
+
+    lamps.sync_lamps(scene)
     return world
 
 
 def detach(scene: bpy.types.Scene) -> None:
-    """Restore previous World, delete OuroSkies World, stop handlers."""
+    """Restore previous World, delete OuroSkies World, remove owned lamps, stop handlers."""
     settings = scene.ouroskies
     stop_handlers()
+
+    from . import lamps
+
+    lamps.remove_all_owned_lamps(scene)
 
     owned = find_ouroskies_world(scene)
     prev_name = settings.previous_world_name

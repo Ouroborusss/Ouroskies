@@ -175,9 +175,27 @@ class OUROSKIES_PT_setup(Panel):
         layout.prop(settings, "timezone")
 
         layout.separator()
-        layout.operator("ouroskies.rebuild_sky_graph", text="Rebuild Sky Graph")
+        layout.label(text="Lamps")
+        row = layout.row(align=True)
+        row.operator("ouroskies.add_sun_lamp", text="Add Sun Lamp")
+        row.operator("ouroskies.remove_sun_lamp", text="Remove")
+        if settings.has_sun_lamp:
+            layout.prop(settings, "sun_lamp_energy")
+        row = layout.row(align=True)
+        row.operator("ouroskies.add_moon_lamp", text="Add Moon Lamp")
+        row.operator("ouroskies.remove_moon_lamp", text="Remove")
+        if settings.has_moon_lamp:
+            layout.prop(settings, "moon_lamp_energy")
+
         layout.separator()
-        layout.label(text="Lamps — later", icon="INFO")
+        layout.operator("ouroskies.rebuild_sky_graph", text="Rebuild Sky Graph")
+
+        layout.separator()
+        box = layout.box()
+        box.label(text="EEVEE notes", icon="INFO")
+        box.label(text="Sky Texture Sun Disc is Cycles-only")
+        box.label(text="Use Add Sun Lamp for EEVEE daylight")
+        box.label(text="No Cycles/EEVEE lighting parity claims")
 
 
 CLASSES = (

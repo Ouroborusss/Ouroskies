@@ -30,23 +30,26 @@ def _on_atmosphere_update(self, context) -> None:
 
 
 def _on_aim_update(self, context) -> None:
-    from . import aim, looks
+    from . import aim, lamps, looks
 
     aim.sync_aim(context.scene)
     looks.sync_looks(context.scene)
+    lamps.sync_lamps(context.scene)
 
 
 def _on_place_date_update(self, context) -> None:
-    from . import looks, place_date
+    from . import lamps, looks, place_date
 
     place_date.evaluate(context.scene)
     looks.sync_looks(context.scene)
+    lamps.sync_lamps(context.scene)
 
 
 def _on_looks_update(self, context) -> None:
-    from . import looks
+    from . import lamps, looks
 
     looks.sync_looks(context.scene)
+    lamps.sync_lamps(context.scene)
 
 
 class OuroSkiesSettings(PropertyGroup):
@@ -312,6 +315,41 @@ class OuroSkiesSettings(PropertyGroup):
         min=0.0,
         max=1.0,
         default=defaults.AIRGLOW_TINT,
+        update=_on_looks_update,
+    )
+
+    has_sun_lamp: BoolProperty(
+        name="Has Sun Lamp",
+        description="OuroSkies sun lamp is present",
+        default=False,
+        options={"HIDDEN"},
+    )
+    has_moon_lamp: BoolProperty(
+        name="Has Moon Lamp",
+        description="OuroSkies moon lamp is present",
+        default=False,
+        options={"HIDDEN"},
+    )
+    sun_lamp_name: StringProperty(default="", options={"HIDDEN"})
+    moon_lamp_name: StringProperty(default="", options={"HIDDEN"})
+    sun_lamp_energy: FloatProperty(
+        name="Sun Lamp Energy",
+        description="Energy of the synced Sun lamp (W/m² scale in Blender Sun lights)",
+        default=defaults.SUN_LAMP_ENERGY,
+        soft_min=0.0,
+        soft_max=20.0,
+        min=0.0,
+        max=1000.0,
+        update=_on_looks_update,
+    )
+    moon_lamp_energy: FloatProperty(
+        name="Moon Lamp Energy",
+        description="Energy of the synced Moon lamp",
+        default=defaults.MOON_LAMP_ENERGY,
+        soft_min=0.0,
+        soft_max=1.0,
+        min=0.0,
+        max=100.0,
         update=_on_looks_update,
     )
 

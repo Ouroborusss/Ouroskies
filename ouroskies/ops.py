@@ -125,6 +125,68 @@ class OUROSKIES_OT_wb_preset(Operator):
         return {"FINISHED"}
 
 
+class OUROSKIES_OT_add_sun_lamp(Operator):
+    bl_idname = "ouroskies.add_sun_lamp"
+    bl_label = "Add Sun Lamp"
+    bl_description = "Create an OuroSkies-owned Sun lamp synced to primary sun aim"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        from . import lamps
+
+        obj = lamps.add_lamp(context.scene, lamps.LAMP_KIND_SUN)
+        self.report({"INFO"}, f"Added {obj.name}")
+        return {"FINISHED"}
+
+
+class OUROSKIES_OT_remove_sun_lamp(Operator):
+    bl_idname = "ouroskies.remove_sun_lamp"
+    bl_label = "Remove Sun Lamp"
+    bl_description = "Remove the OuroSkies-owned Sun lamp only"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        from . import lamps
+
+        if lamps.remove_lamp(context.scene, lamps.LAMP_KIND_SUN):
+            self.report({"INFO"}, "Removed OuroSkies Sun Lamp")
+        else:
+            self.report({"WARNING"}, "No OuroSkies Sun Lamp to remove")
+            return {"CANCELLED"}
+        return {"FINISHED"}
+
+
+class OUROSKIES_OT_add_moon_lamp(Operator):
+    bl_idname = "ouroskies.add_moon_lamp"
+    bl_label = "Add Moon Lamp"
+    bl_description = "Create an OuroSkies-owned Moon lamp synced to moon aim"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        from . import lamps
+
+        obj = lamps.add_lamp(context.scene, lamps.LAMP_KIND_MOON)
+        self.report({"INFO"}, f"Added {obj.name}")
+        return {"FINISHED"}
+
+
+class OUROSKIES_OT_remove_moon_lamp(Operator):
+    bl_idname = "ouroskies.remove_moon_lamp"
+    bl_label = "Remove Moon Lamp"
+    bl_description = "Remove the OuroSkies-owned Moon lamp only"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        from . import lamps
+
+        if lamps.remove_lamp(context.scene, lamps.LAMP_KIND_MOON):
+            self.report({"INFO"}, "Removed OuroSkies Moon Lamp")
+        else:
+            self.report({"WARNING"}, "No OuroSkies Moon Lamp to remove")
+            return {"CANCELLED"}
+        return {"FINISHED"}
+
+
 CLASSES = (
     OUROSKIES_OT_enable,
     OUROSKIES_OT_detach,
@@ -133,6 +195,10 @@ CLASSES = (
     OUROSKIES_OT_reset_sun_position,
     OUROSKIES_OT_physically_accurate,
     OUROSKIES_OT_wb_preset,
+    OUROSKIES_OT_add_sun_lamp,
+    OUROSKIES_OT_remove_sun_lamp,
+    OUROSKIES_OT_add_moon_lamp,
+    OUROSKIES_OT_remove_moon_lamp,
 )
 
 

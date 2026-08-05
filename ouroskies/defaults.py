@@ -51,6 +51,19 @@ AIRGLOW_FADE_HIGH_DEG = 6.0
 
 EXPOSURE = 0.0
 
+# provisional: lamp energies / angle; PA sets these when lamps exist.
+SUN_LAMP_NAME = "OuroSkies Sun Lamp"
+MOON_LAMP_NAME = "OuroSkies Moon Lamp"
+LAMP_OWNED_KEY = "ouroskies_owned_lamp"
+LAMP_KIND_KEY = "ouroskies_lamp_kind"
+LAMP_DISTANCE = 1000.0
+SUN_LAMP_ENERGY = 4.0
+MOON_LAMP_ENERGY = 0.05
+PA_SUN_LAMP_ENERGY = 4.0
+PA_MOON_LAMP_ENERGY = 0.05
+SUN_LAMP_ANGLE_RAD = 0.00918043  # ~0.526° — near solar angular diameter
+WORLD_SUN_THRESHOLD_DEFAULT = 10.0
+
 WORLD_NAME = "OuroSkies"
 WORLD_OWNED_KEY = "ouroskies_owned"
 NODE_SKY = "OuroSkies Sky"
