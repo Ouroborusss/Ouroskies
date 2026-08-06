@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PROTOTYPE — OuroSkies Milky band looks</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #05070c;
+      color: #e8e8e8;
+      font: 14px/1.4 "Segoe UI", system-ui, sans-serif;
+      overflow: hidden;
+    }
+    canvas { display: block; width: 100vw; height: 100vh; }
+    .hud {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      max-width: min(460px, calc(100vw - 32px));
+      padding: 12px 14px;
+      background: rgba(8, 10, 16, 0.82);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 6px;
+      backdrop-filter: blur(6px);
+      z-index: 5;
+    }
+    .hud .badge {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #9aa3b5;
+      margin-bottom: 6px;
+    }
+    .hud h1 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+    .hud p { margin: 0; color: #b7bfcc; font-size: 13px; }
+    .switcher {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      align-items: center;
+      max-width: min(960px, calc(100vw - 24px));
+      padding: 8px 12px;
+      background: rgba(12, 14, 20, 0.94);
+      border: 1px solid #4a5160;
+      border-radius: 8px;
+      z-index: 5;
+    }
+    .switcher button {
+      border: 1px solid #5a6478;
+      background: #222836;
+      color: #eee;
+      padding: 7px 11px;
+      border-radius: 4px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .switcher button.active {
+      background: #3d5f8f;
+      border-color: #7ea0d0;
+    }
+    .sliders {
+      position: fixed;
+      right: 16px;
+      bottom: 18px;
+      padding: 10px 12px;
+      background: rgba(12, 14, 20, 0.92);
+      border: 1px solid #4a5160;
+      border-radius: 8px;
+      display: grid;
+      gap: 6px;
+      min-width: 220px;
+      font-size: 12px;
+      color: #c5ccd8;
+      z-index: 5;
+    }
+    .sliders label {
+      display: grid;
+      grid-template-columns: 78px 1fr;
+      gap: 8px;
+      align-items: center;
+    }
+    .sliders input[type="range"] { width: 100%; }
+  </style>
+</head>
+<body>
+  <!--
+    PROTOTYPE: Milky band looks. F = mist + dust lanes (user lean) with blur, no circle stamps.
+  -->
+  <canvas id="sky"></canvas>
+  <div class="hud">
+    <div class="badge">Throwaway prototype — pick a band look</div>
+    <h1 id="title">F — Mist + lanes</h1>
+    <p id="blurb"></p>
+  </div>
+  <div class="switcher" id="switcher"></div>
+  <div class="sliders">
+    <div style="color:#9aa3b5;margin-bottom:2px">Shared scene</div>
+    <label>Stars <input id="starBri" type="range" min="0" max="0.4" step="0.01" value="0.1" /></label>
+    <label>Band <input id="bandBri" type="range" min="0" max="1.5" step="0.01" value="0.85" /></label>
+    <label>Width <input id="width" type="range" min="0.4" max="1.6" step="0.01" value="1" /></label>
+    <label>Noise <input id="noise" type="range" min="0.2" max="3" step="0.05" value="1" /></label>
+    <label>Blur <input id="blur" type="range" min="0" max="18" step="0.5" value="7" /></label>
+  </div>
+  <script>
+    const canvas = document.getElementById("sky");
+    const ctx = canvas.getContext("2d");
+    const bandLayer = document.createElement("canvas");
+    const bandCtx = bandLayer.getContext("2d", { willReadFrequently: true });
+    let w = 0, h = 0, dpr = 1;
+    let stars = [];
+    let variant = "F";
+    let bandDirty = true;
+    let lastKey = "";
+
+    // Shared scene knobs — star field + milky amount (slider, not toggle).
+    const STAR_LOOK = {
+      count: 1600,
+      brightFrac: 0.025,
+      sizeMin: 0.35,
+      sizeMax: 1.8,
+      densityPow: 2.05,
+    };
+
+    const LOOKS = {
+      A: {
+        title: "A — Soft edge whisper",
+        blurb: "Smooth core, faint rim noise — closest to what shipped (often too uniform).",
+        kind: "edge",
+        coreSolid: 0.92,
+        noiseAmt: 0.28,
+        noiseScale: 0.0045,
+        clumpAmt: 0,
+        dustAmt: 0,
+        laneAmt: 0,
+      },
+      C: {
+        title: "C — Dust lanes",
+        blurb: "Dark cuts through a brighter core. More galaxy-photo structure.",
+        kind: "lanes",
+        coreSolid: 0.7,
+        noiseAmt: 0.45,
+        noiseScale: 0.005,
+        clumpAmt: 0.55,
+        dustAmt: 0.25,
+        laneAmt: 0.75,
+      },
+      E: {
+        title: "E — Mist + sparkle",
+        blurb: "Soft misty glow with fine dust speckles in the band.",
+        kind: "mist",
+        coreSolid: 0.65,
+        noiseAmt: 0.5,
+        noiseScale: 0.0055,
+        clumpAmt: 0.25,
+        dustAmt: 0.7,
+        laneAmt: 0.15,
+      },
+      F: {
+        title: "F — Mist + lanes (lean)",
+        blurb: "Your lean: dust lanes inside a misty glow, fine sparkle, then blur so nothing reads as stamped circles.",
+        kind: "hybrid",
+        coreSolid: 0.62,
+        noiseAmt: 0.55,
+        noiseScale: 0.0052,
+        clumpAmt: 0.4,
+        dustAmt: 0.55,
+        laneAmt: 0.65,
+      },
+    };
+
+    function hash(i) {
+      let x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+      return x - Math.floor(x);
+    }
+    function hash2(x, y) {
+      return hash((x * 12.9898 + y * 78.233) * 43758.5453);
+    }
+    function vnoise(x, y, scale) {
+      const xs = x * scale, ys = y * scale;
+      const x0 = Math.floor(xs), y0 = Math.floor(ys);
+      const fx = xs - x0, fy = ys - y0;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const n00 = hash2(x0, y0), n10 = hash2(x0 + 1, y0);
+      const n01 = hash2(x0, y0 + 1), n11 = hash2(x0 + 1, y0 + 1);
+      return (n00 * (1 - sx) + n10 * sx) * (1 - sy) + (n01 * (1 - sx) + n11 * sx) * sy;
+    }
+    function fbm(x, y, scale, oct) {
+      let a = 0, amp = 0.5, s = scale, sum = 0;
+      for (let i = 0; i < oct; i++) {
+        a += amp * vnoise(x, y, s);
+        sum += amp;
+        amp *= 0.5;
+        s *= 2.03;
+      }
+      return a / sum;
+    }
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = w + "px";
+      canvas.style.height = h + "px";
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      bandLayer.width = Math.floor(w * dpr);
+      bandLayer.height = Math.floor(h * dpr);
+      bandCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      rebuildStars();
+      bandDirty = true;
+    }
+
+    function rebuildStars() {
+      const L = STAR_LOOK;
+      stars = [];
+      for (let i = 0; i < L.count; i++) {
+        const u = hash(i + 1);
+        const v = hash(i + 99);
+        const mag = Math.pow(u, L.densityPow);
+        const isBright = v < L.brightFrac;
+        const size = isBright
+          ? L.sizeMax * (0.65 + hash(i + 3) * 0.35)
+          : L.sizeMin + mag * (L.sizeMax * 0.5 - L.sizeMin);
+        stars.push({
+          x: hash(i + 7) * w,
+          y: hash(i + 13) * h * 0.9,
+          size,
+          a: isBright ? 0.95 : 0.12 + mag * 0.65,
+          warm: hash(i + 21),
+        });
+      }
+    }
+
+    function bandFrame() {
+      const x0 = -w * 0.05, y0 = h * 0.2;
+      const x1 = w * 1.05, y1 = h * 0.56;
+      const dx = x1 - x0, dy = y1 - y0;
+      const len = Math.hypot(dx, dy) || 1;
+      return { x0, y0, dx, dy, len, nx: -dy / len, ny: dx / len };
+    }
+
+    function bandDensity(x, y, halfW, L, noiseMul) {
+      const B = bandFrame();
+      const vx = x - B.x0, vy = y - B.y0;
+      const t = (vx * B.dx + vy * B.dy) / (B.len * B.len);
+      if (t < -0.02 || t > 1.02) return 0;
+      const px = B.x0 + B.dx * t, py = B.y0 + B.dy * t;
+      const dist = Math.hypot(x - px, y - py);
+      const soft = Math.max(0, 1 - dist / halfW);
+      if (soft <= 0) return 0;
+      const horizonFade = Math.max(0, Math.min(1, (0.78 * h - y) / (0.18 * h)));
+      if (horizonFade <= 0.01) return 0;
+      const along = Math.max(0.2, 1 - Math.abs(t - 0.5) * 1.35);
+
+      const ns = L.noiseScale * noiseMul;
+      const n1 = fbm(x, y, ns, 4);
+      const n2 = fbm(x + 40, y - 17, ns * 2.4, 3);
+      const clump = fbm(x * 0.7, y * 0.7, ns * 0.55, 3);
+
+      let dens = soft * soft;
+      if (L.kind === "edge") {
+        const edge = 1 - soft;
+        const edgeNoise = n1 * L.noiseAmt + (1 - L.noiseAmt);
+        const core = L.coreSolid + (1 - L.coreSolid) * soft;
+        dens *= (1 - edge) * core + edge * edgeNoise;
+        dens *= 0.55 + 0.45 * along;
+      } else if (L.kind === "lanes") {
+        const lane = Math.pow(Math.abs(n2 - 0.5) * 2, 1.4);
+        dens *= L.coreSolid + (1 - L.coreSolid) * n1;
+        dens *= 1 - L.laneAmt * (1 - lane) * soft;
+        dens *= 0.4 + 0.6 * along;
+        dens *= 0.35 + 0.65 * clump;
+      } else if (L.kind === "mist") {
+        dens *= L.coreSolid + (1 - L.coreSolid) * (0.4 + 0.6 * n1);
+        dens *= 0.45 + 0.55 * along;
+        dens *= 0.55 + 0.45 * clump;
+      } else if (L.kind === "hybrid") {
+        // Mist body + dust lanes (C∩E).
+        const mist = L.coreSolid + (1 - L.coreSolid) * (0.35 + 0.65 * n1);
+        const lane = Math.pow(Math.abs(n2 - 0.5) * 2, 1.35);
+        dens *= mist;
+        dens *= 1 - L.laneAmt * (1 - lane) * Math.pow(soft, 0.85);
+        dens *= 0.4 + 0.6 * along;
+        dens *= 0.4 + 0.6 * clump;
+      }
+
+      return Math.max(0, Math.min(1, dens)) * horizonFade;
+    }
+
+    /** Pixel-fill the band (no radial stamps), then blur the layer. */
+    function rebuildBandLayer(alpha, L, widthMul, blurPx, noiseMul) {
+      const halfW = h * 0.11 * widthMul;
+      const bw = bandLayer.width;
+      const bh = bandLayer.height;
+      bandCtx.setTransform(1, 0, 0, 1, 0, 0);
+      bandCtx.clearRect(0, 0, bw, bh);
+      bandCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Build density on a slightly downsampled grid for speed, then scale up.
+      const step = Math.max(1, Math.round(2 / Math.min(dpr, 1.5)));
+      const img = bandCtx.createImageData(Math.ceil(w / step), Math.ceil(h / step));
+      const iw = img.width, ih = img.height;
+      const data = img.data;
+      for (let iy = 0; iy < ih; iy++) {
+        for (let ix = 0; ix < iw; ix++) {
+          const x = (ix + 0.5) * step;
+          const y = (iy + 0.5) * step;
+          const m = bandDensity(x, y, halfW, L, noiseMul);
+          if (m < 0.008) continue;
+          const a = Math.min(1, alpha * m * 0.9);
+          const cool = 0.22 + 0.35 * (1 - m);
+          const r = 220 * (1 - cool) + 145 * cool;
+          const g = 205 * (1 - cool) + 155 * cool;
+          const b = 180 * (1 - cool) + 200 * cool;
+          const i = (iy * iw + ix) * 4;
+          data[i] = r;
+          data[i + 1] = g;
+          data[i + 2] = b;
+          data[i + 3] = Math.floor(a * 255);
+        }
+      }
+
+      // Draw density into an offscreen 1:1 buffer, then blur-composite.
+      const raw = document.createElement("canvas");
+      raw.width = iw;
+      raw.height = ih;
+      raw.getContext("2d").putImageData(img, 0, 0);
+
+      bandCtx.save();
+      if (blurPx > 0.1) bandCtx.filter = `blur(${blurPx}px)`;
+      bandCtx.imageSmoothingEnabled = true;
+      bandCtx.drawImage(raw, 0, 0, w, h);
+      bandCtx.filter = "none";
+
+      // Soft sparkles after blur so they stay slightly sharper than the mist.
+      if (L.dustAmt > 0.01) {
+        const B = bandFrame();
+        const n = Math.floor(220 * L.dustAmt);
+        for (let i = 0; i < n; i++) {
+          const u = 0.06 + hash(i + 500) * 0.88;
+          const lat = (hash(i + 600) - 0.5) * 2;
+          const x = B.x0 + B.dx * u + B.nx * lat * halfW * 0.7;
+          const y = B.y0 + B.dy * u + B.ny * lat * halfW * 0.7;
+          const m = bandDensity(x, y, halfW, L, noiseMul);
+          if (m < 0.1) continue;
+          const a = alpha * m * (0.12 + hash(i + 700) * 0.4) * L.dustAmt;
+          bandCtx.globalAlpha = Math.min(1, a);
+          bandCtx.fillStyle = hash(i + 800) > 0.5 ? "rgb(235,225,210)" : "rgb(190,200,230)";
+          bandCtx.beginPath();
+          bandCtx.arc(x, y, 0.35 + hash(i + 900) * 1.1, 0, Math.PI * 2);
+          bandCtx.fill();
+        }
+        bandCtx.globalAlpha = 1;
+      }
+      bandCtx.restore();
+    }
+
+    function frame() {
+      const L = LOOKS[variant];
+      const starBri = +document.getElementById("starBri").value;
+      const bandBri = +document.getElementById("bandBri").value;
+      const widthMul = +document.getElementById("width").value;
+      const blurPx = +document.getElementById("blur").value;
+      const noiseMul = +document.getElementById("noise").value;
+      const key = [variant, bandBri, widthMul, blurPx, noiseMul, w, h].join("|");
+      if (key !== lastKey) {
+        lastKey = key;
+        bandDirty = true;
+      }
+      if (bandDirty && bandBri > 0.01) {
+        rebuildBandLayer(bandBri, L, widthMul, blurPx, noiseMul);
+        bandDirty = false;
+      }
+
+      const bg = ctx.createLinearGradient(0, 0, 0, h);
+      bg.addColorStop(0, "rgb(6,8,14)");
+      bg.addColorStop(0.55, "rgb(5,7,12)");
+      bg.addColorStop(1, "rgb(8,9,12)");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+
+      const ag = ctx.createRadialGradient(w * 0.5, h * 0.75, 0, w * 0.5, h, h * 0.55);
+      ag.addColorStop(0, "rgba(70,90,80,0.035)");
+      ag.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = ag;
+      ctx.fillRect(0, 0, w, h);
+
+      if (bandBri > 0.01) ctx.drawImage(bandLayer, 0, 0, w, h);
+
+      for (const s of stars) {
+        const a = s.a * starBri * 2.2;
+        if (a <= 0.01) continue;
+        const r = 210 + s.warm * 30;
+        const g = 215 + s.warm * 15;
+        const b = 230 - s.warm * 25;
+        ctx.beginPath();
+        ctx.fillStyle = `rgb(${r | 0},${g | 0},${b | 0})`;
+        ctx.globalAlpha = Math.min(1, a);
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(frame);
+    }
+
+    function setVariant(v) {
+      variant = v;
+      bandDirty = true;
+      const L = LOOKS[v];
+      document.getElementById("title").textContent = L.title;
+      document.getElementById("blurb").textContent = L.blurb;
+      document.querySelectorAll(".switcher button[data-v]").forEach((b) => {
+        b.classList.toggle("active", b.dataset.v === v);
+      });
+      const url = new URL(location.href);
+      url.searchParams.set("variant", v);
+      history.replaceState(null, "", url);
+    }
+
+    const switcher = document.getElementById("switcher");
+    Object.keys(LOOKS).forEach((k) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.v = k;
+      const short = LOOKS[k].title.split("—")[1].trim();
+      b.textContent = k + " " + short.split(" ").slice(0, 3).join(" ");
+      b.addEventListener("click", () => setVariant(k));
+      switcher.appendChild(b);
+    });
+
+    ["starBri", "bandBri", "width", "blur", "noise"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", () => { bandDirty = true; });
+    });
+
+    window.addEventListener("resize", resize);
+    resize();
+    setVariant(new URL(location.href).searchParams.get("variant") || "F");
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

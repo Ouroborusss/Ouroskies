@@ -362,10 +362,30 @@ class OuroSkiesSettings(PropertyGroup):
         max=10.0,
         update=_on_looks_update,
     )
-    stars_milky_band: BoolProperty(
+    stars_milky_band: FloatProperty(
         name="Milky Band",
-        description="Soft artistic galactic band (fades before the horizon; not a catalog)",
+        description=(
+            "Soft galactic band amount (looks-only, not a catalog). "
+            "0 = off; 1 = default recipe strength"
+        ),
         default=defaults.STARS_MILKY_BAND,
+        soft_min=0.0,
+        soft_max=2.0,
+        min=0.0,
+        max=10.0,
+        update=_on_looks_update,
+    )
+    stars_milky_noise: FloatProperty(
+        name="Milky Noise",
+        description=(
+            "Scale of mist / dust-lane noise in the Milky band. "
+            "Lower = softer larger structure; higher = finer breakup"
+        ),
+        default=defaults.STARS_MILKY_NOISE,
+        soft_min=0.2,
+        soft_max=3.0,
+        min=0.05,
+        max=10.0,
         update=_on_looks_update,
     )
 

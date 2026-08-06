@@ -91,7 +91,8 @@ SECONDARY_SUN_COLOR = (1.0, 0.82, 0.55, 1.0)
 # provisional: dense fine field (Density drives Voronoi scale); modest Brightness.
 STARS_DENSITY = 6.0
 STARS_BRIGHTNESS = 0.1
-STARS_MILKY_BAND = True
+# Milky Band amount: 0 = off, 1 = recipe strength (see MILKY_STRENGTH).
+STARS_MILKY_BAND = 1.0
 # Voronoi scale at Density=1; bright layer uses a fraction of this.
 STARS_VORONOI_SCALE = 95.0
 STARS_BRIGHT_SCALE_FRAC = 0.22
@@ -105,12 +106,19 @@ STARS_HORIZON_ZERO_Z = 0.02
 STARS_USE_DAYLIGHT_FADE = False
 STARS_FADE_LOW_DEG = -12.0
 STARS_FADE_HIGH_DEG = 2.0
-# Milky band: soft plane (original look) with noisy edge breakup only.
+# Milky band look F — mist + dust lanes (prototype lean). Soft plane + noise.
 MILKY_PLANE_NORMAL = (0.35, 0.72, 0.60)
 MILKY_HALF_WIDTH = 0.18
 MILKY_STRENGTH = 0.55
 MILKY_COLOR = (0.82, 0.76, 0.70, 1.0)
+# Base Noise scales at Milky Noise slider = 1.0
 MILKY_NOISE_SCALE = 3.5
+MILKY_LANE_SCALE = 8.4
+MILKY_CLUMP_SCALE = 1.9
+MILKY_DUST_SCALE = 48.0
+MILKY_LANE_AMOUNT = 0.65
+# User slider default (multiplies the base scales above).
+STARS_MILKY_NOISE = 1.0
 
 WORLD_NAME = "OuroSkies"
 WORLD_OWNED_KEY = "ouroskies_owned"
@@ -154,8 +162,10 @@ NODE_MILKY_ABS = "OuroSkies Milky Abs"
 NODE_MILKY_NORMAL = "OuroSkies Milky Normal"
 NODE_MILKY_MAP = "OuroSkies Milky Map"
 NODE_MILKY_NOISE = "OuroSkies Milky Noise"
-NODE_MILKY_EDGE = "OuroSkies Milky Edge Mix"
-NODE_MILKY_MUL_N = "OuroSkies Milky Mul N"
+NODE_MILKY_LANE = "OuroSkies Milky Lane"
+NODE_MILKY_CLUMP = "OuroSkies Milky Clump"
+NODE_MILKY_DUST = "OuroSkies Milky Dust"
+NODE_MILKY_SCALE = "OuroSkies Milky Noise Scale"
 NODE_MILKY_STRENGTH = "OuroSkies Milky Strength"
 NODE_MILKY_MUL_S = "OuroSkies Milky Mul S"
 NODE_MILKY_MUL_H = "OuroSkies Milky Mul H"

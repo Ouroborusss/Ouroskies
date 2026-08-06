@@ -107,6 +107,7 @@ class OUROSKIES_PT_looks(Panel):
         layout.prop(settings, "stars_density", text="Density")
         layout.prop(settings, "stars_brightness", text="Brightness")
         layout.prop(settings, "stars_milky_band", text="Milky Band")
+        layout.prop(settings, "stars_milky_noise", text="Milky Noise")
         layout.label(text="No twinkle · daylight relies on sky HDR", icon="INFO")
 
 
