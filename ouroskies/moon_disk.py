@@ -181,9 +181,24 @@ def sync_moon_disk(
     if obj.parent is not None:
         obj.parent = None
     obj.location = direction * distance
-    # Plane +Z toward origin so the textured face is seen from the scene.
-    obj.rotation_quaternion = (-direction).to_track_quat("Z", "Y")
     obj.scale = (radius, radius, radius)
+
+    # Keep the textured face toward the active camera. A Track To constraint
+    # updates when the camera moves; origin-facing made offset cameras see
+    # the culled backface (invisible disk despite clip_end being fine).
+    for c in list(obj.constraints):
+        if c.name.startswith("OuroSkies Moon Face"):
+            obj.constraints.remove(c)
+    cam = scene.camera
+    if cam is not None:
+        track = obj.constraints.new("TRACK_TO")
+        track.name = "OuroSkies Moon Face"
+        track.target = cam
+        track.track_axis = "TRACK_Z"
+        track.up_axis = "UP_Y"
+    else:
+        toward_viewer = -direction
+        obj.rotation_quaternion = toward_viewer.to_track_quat("Z", "Y")
 
     hide = visible_factor <= 0.001
     obj.hide_render = hide

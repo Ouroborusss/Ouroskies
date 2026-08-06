@@ -347,9 +347,9 @@ class OuroSkiesSettings(PropertyGroup):
         description="Procedural star field density (looks over catalog; no twinkle)",
         default=defaults.STARS_DENSITY,
         soft_min=0.0,
-        soft_max=2.0,
+        soft_max=10.0,
         min=0.0,
-        max=10.0,
+        max=50.0,
         update=_on_looks_update,
     )
     stars_brightness: FloatProperty(

@@ -58,14 +58,17 @@ def _normalize3(v: tuple[float, float, float]) -> tuple[float, float, float]:
 
 
 def sync_stars_to_world(settings, owned: bpy.types.World) -> None:
-    """Push Density / Brightness / Milky / daylight fade into World uniforms."""
+    """Push Density / Brightness / Milky into World uniforms."""
     if owned is None or owned.node_tree is None:
         return
     nodes = owned.node_tree.nodes
 
     density = max(0.0, float(settings.stars_density))
     brightness = max(0.0, float(settings.stars_brightness))
-    fade = stars_daylight_fade(_current_sun_elevation_deg(settings))
+    if defaults.STARS_USE_DAYLIGHT_FADE:
+        fade = stars_daylight_fade(_current_sun_elevation_deg(settings))
+    else:
+        fade = 1.0
     milky_on = bool(settings.stars_milky_band)
 
     scale = defaults.STARS_VORONOI_SCALE * max(0.05, density)
@@ -80,8 +83,6 @@ def sync_stars_to_world(settings, owned: bpy.types.World) -> None:
         nodes.get(defaults.NODE_MILKY_STRENGTH),
         defaults.MILKY_STRENGTH * brightness if milky_on else 0.0,
     )
-    # Milky reuses the same daylight fade Value node via links; keep a mirror
-    # only if a dedicated fade uniform exists (it shares NODE_STAR_FADE).
 
 
 def sync_stars(scene: bpy.types.Scene) -> None:
@@ -294,7 +295,7 @@ def wire_stars_nodes(
     links.new(base_shader_socket, add_stars.inputs[0])
     links.new(bg.outputs["Background"], add_stars.inputs[1])
 
-    # --- Milky band (soft plane + noise; fades before horizon) ---
+    # --- Milky band (structured glow — not a flat ribbon) ---
     milky_n = nodes.new("ShaderNodeCombineXYZ")
     milky_n.name = defaults.NODE_MILKY_NORMAL
     milky_n.label = defaults.NODE_MILKY_NORMAL
@@ -323,70 +324,147 @@ def wire_stars_nodes(
     milky_map.inputs["To Min"].default_value = 1.0
     milky_map.inputs["To Max"].default_value = 0.0
 
+    # Soft core: raise falloff so edges dissolve instead of a hard strip.
+    milky_core = nodes.new("ShaderNodeMath")
+    milky_core.name = defaults.NODE_MILKY_MAP + " Core"
+    milky_core.label = "Milky Soft Core"
+    milky_core.location = (-20.0, -1040.0)
+    milky_core.operation = "POWER"
+    milky_core.inputs[1].default_value = 1.65
+
     milky_noise = nodes.new("ShaderNodeTexNoise")
     milky_noise.name = defaults.NODE_MILKY_NOISE
     milky_noise.label = defaults.NODE_MILKY_NOISE
     milky_noise.location = (-200.0, -1200.0)
     milky_noise.noise_dimensions = "3D"
     milky_noise.inputs["Scale"].default_value = defaults.MILKY_NOISE_SCALE
-    milky_noise.inputs["Detail"].default_value = 4.0
-    milky_noise.inputs["Roughness"].default_value = 0.55
+    milky_noise.inputs["Detail"].default_value = 6.0
+    milky_noise.inputs["Roughness"].default_value = 0.62
+
+    milky_clump = nodes.new("ShaderNodeTexNoise")
+    milky_clump.name = defaults.NODE_MILKY_CLUMP
+    milky_clump.label = defaults.NODE_MILKY_CLUMP
+    milky_clump.location = (-200.0, -1380.0)
+    milky_clump.noise_dimensions = "3D"
+    milky_clump.inputs["Scale"].default_value = defaults.MILKY_CLUMP_SCALE
+    milky_clump.inputs["Detail"].default_value = 3.0
+    milky_clump.inputs["Roughness"].default_value = 0.45
+
+    # Dark lanes: push clump contrast (0.2 floor → bright cores / dark gaps).
+    milky_clump_c = nodes.new("ShaderNodeMapRange")
+    milky_clump_c.name = defaults.NODE_MILKY_CLUMP + " Contrast"
+    milky_clump_c.label = "Milky Clump Contrast"
+    milky_clump_c.location = (-20.0, -1380.0)
+    milky_clump_c.clamp = True
+    milky_clump_c.inputs["From Min"].default_value = 0.28
+    milky_clump_c.inputs["From Max"].default_value = 0.78
+    milky_clump_c.inputs["To Min"].default_value = 0.08
+    milky_clump_c.inputs["To Max"].default_value = 1.0
+
+    milky_dust = nodes.new("ShaderNodeTexVoronoi")
+    milky_dust.name = defaults.NODE_MILKY_DUST
+    milky_dust.label = defaults.NODE_MILKY_DUST
+    milky_dust.location = (-200.0, -1560.0)
+    milky_dust.feature = "F1"
+    milky_dust.distance = "EUCLIDEAN"
+    milky_dust.voronoi_dimensions = "3D"
+    milky_dust.inputs["Scale"].default_value = defaults.MILKY_DUST_SCALE
+
+    milky_dust_inv = nodes.new("ShaderNodeMath")
+    milky_dust_inv.name = defaults.NODE_MILKY_DUST + " Inv"
+    milky_dust_inv.label = "Milky Dust Inv"
+    milky_dust_inv.location = (-20.0, -1560.0)
+    milky_dust_inv.operation = "SUBTRACT"
+    milky_dust_inv.inputs[0].default_value = 1.0
+
+    milky_dust_pow = nodes.new("ShaderNodeMath")
+    milky_dust_pow.name = defaults.NODE_MILKY_DUST + " Pow"
+    milky_dust_pow.label = "Milky Dust Pow"
+    milky_dust_pow.location = (160.0, -1560.0)
+    milky_dust_pow.operation = "POWER"
+    milky_dust_pow.inputs[1].default_value = 10.0
+
+    # Structure = soft_core × (0.15 + 0.85×noise) × clump + 0.35×dust
+    milky_struct = nodes.new("ShaderNodeMath")
+    milky_struct.name = defaults.NODE_MILKY_MUL_N + " Struct"
+    milky_struct.label = "Milky Struct Floor"
+    milky_struct.location = (-20.0, -1200.0)
+    milky_struct.operation = "MULTIPLY_ADD"
+    milky_struct.inputs[1].default_value = 0.85
+    milky_struct.inputs[2].default_value = 0.15
 
     milky_mul_n = nodes.new("ShaderNodeMath")
     milky_mul_n.name = defaults.NODE_MILKY_MUL_N
     milky_mul_n.label = defaults.NODE_MILKY_MUL_N
-    milky_mul_n.location = (-20.0, -1100.0)
+    milky_mul_n.location = (160.0, -1120.0)
     milky_mul_n.operation = "MULTIPLY"
 
-    # Keep a soft floor so the band isn't only noise speckles.
-    milky_floor = nodes.new("ShaderNodeMath")
-    milky_floor.name = defaults.NODE_MILKY_MUL_N + " Floor"
-    milky_floor.label = "Milky Noise Floor"
-    milky_floor.location = (-20.0, -1220.0)
-    milky_floor.operation = "MULTIPLY_ADD"
-    milky_floor.inputs[1].default_value = 0.65
-    milky_floor.inputs[2].default_value = 0.35
+    milky_mul_clump = nodes.new("ShaderNodeMath")
+    milky_mul_clump.name = defaults.NODE_MILKY_MUL_N + " Clump"
+    milky_mul_clump.label = "Milky × Clump"
+    milky_mul_clump.location = (340.0, -1120.0)
+    milky_mul_clump.operation = "MULTIPLY"
+
+    milky_add_dust = nodes.new("ShaderNodeMath")
+    milky_add_dust.name = defaults.NODE_MILKY_DUST + " Add"
+    milky_add_dust.label = "Milky + Dust"
+    milky_add_dust.location = (520.0, -1200.0)
+    milky_add_dust.operation = "MULTIPLY_ADD"
+    milky_add_dust.inputs[1].default_value = 0.45
 
     milky_str = nodes.new("ShaderNodeValue")
     milky_str.name = defaults.NODE_MILKY_STRENGTH
     milky_str.label = defaults.NODE_MILKY_STRENGTH
-    milky_str.location = (-20.0, -1340.0)
+    milky_str.location = (340.0, -1340.0)
     milky_str.outputs[0].default_value = defaults.MILKY_STRENGTH
 
     milky_mul_s = nodes.new("ShaderNodeMath")
     milky_mul_s.name = defaults.NODE_MILKY_MUL_S
     milky_mul_s.label = defaults.NODE_MILKY_MUL_S
-    milky_mul_s.location = (160.0, -1100.0)
+    milky_mul_s.location = (700.0, -1120.0)
     milky_mul_s.operation = "MULTIPLY"
 
     milky_mul_h = nodes.new("ShaderNodeMath")
     milky_mul_h.name = defaults.NODE_MILKY_MUL_H
     milky_mul_h.label = defaults.NODE_MILKY_MUL_H
-    milky_mul_h.location = (340.0, -1100.0)
+    milky_mul_h.location = (880.0, -1120.0)
     milky_mul_h.operation = "MULTIPLY"
 
     milky_mul_f = nodes.new("ShaderNodeMath")
     milky_mul_f.name = defaults.NODE_MILKY_MUL_F
     milky_mul_f.label = defaults.NODE_MILKY_MUL_F
-    milky_mul_f.location = (520.0, -1100.0)
+    milky_mul_f.location = (1060.0, -1120.0)
     milky_mul_f.operation = "MULTIPLY"
 
     milky_cam = nodes.new("ShaderNodeMath")
     milky_cam.name = defaults.NODE_MILKY_CAM_MUL
     milky_cam.label = defaults.NODE_MILKY_CAM_MUL
-    milky_cam.location = (700.0, -1100.0)
+    milky_cam.location = (1240.0, -1120.0)
     milky_cam.operation = "MULTIPLY"
 
     milky_color = nodes.new("ShaderNodeRGB")
     milky_color.name = defaults.NODE_MILKY_COLOR
     milky_color.label = defaults.NODE_MILKY_COLOR
-    milky_color.location = (520.0, -920.0)
+    milky_color.location = (880.0, -920.0)
     milky_color.outputs[0].default_value = defaults.MILKY_COLOR
+
+    milky_cool = nodes.new("ShaderNodeRGB")
+    milky_cool.name = defaults.NODE_MILKY_COLOR_COOL
+    milky_cool.label = defaults.NODE_MILKY_COLOR_COOL
+    milky_cool.location = (880.0, -800.0)
+    milky_cool.outputs[0].default_value = defaults.MILKY_COLOR_COOL
+
+    milky_cmix = nodes.new("ShaderNodeMix")
+    milky_cmix.name = defaults.NODE_MILKY_COLOR_MIX
+    milky_cmix.label = defaults.NODE_MILKY_COLOR_MIX
+    milky_cmix.location = (1060.0, -880.0)
+    milky_cmix.data_type = "RGBA"
+    milky_cmix.blend_type = "MIX"
 
     milky_bg = nodes.new("ShaderNodeBackground")
     milky_bg.name = defaults.NODE_MILKY_BG
     milky_bg.label = "Milky Band (look)"
-    milky_bg.location = (880.0, -1000.0)
+    milky_bg.location = (1420.0, -1000.0)
 
     milky_add = nodes.new("ShaderNodeAddShader")
     milky_add.name = defaults.NODE_MILKY_ADD
@@ -397,11 +475,25 @@ def wire_stars_nodes(
     links.new(milky_n.outputs["Vector"], milky_dot.inputs[1])
     links.new(milky_dot.outputs["Value"], milky_abs.inputs[0])
     links.new(milky_abs.outputs["Value"], milky_map.inputs["Value"])
+    links.new(milky_map.outputs["Result"], milky_core.inputs[0])
+
     links.new(norm.outputs["Vector"], milky_noise.inputs["Vector"])
-    links.new(milky_noise.outputs["Factor"], milky_floor.inputs[0])
-    links.new(milky_map.outputs["Result"], milky_mul_n.inputs[0])
-    links.new(milky_floor.outputs["Value"], milky_mul_n.inputs[1])
-    links.new(milky_mul_n.outputs["Value"], milky_mul_s.inputs[0])
+    links.new(norm.outputs["Vector"], milky_clump.inputs["Vector"])
+    links.new(norm.outputs["Vector"], milky_dust.inputs["Vector"])
+    links.new(milky_noise.outputs["Factor"], milky_struct.inputs[0])
+    links.new(milky_clump.outputs["Factor"], milky_clump_c.inputs["Value"])
+    links.new(milky_dust.outputs["Distance"], milky_dust_inv.inputs[1])
+    links.new(milky_dust_inv.outputs["Value"], milky_dust_pow.inputs[0])
+
+    links.new(milky_core.outputs["Value"], milky_mul_n.inputs[0])
+    links.new(milky_struct.outputs["Value"], milky_mul_n.inputs[1])
+    links.new(milky_mul_n.outputs["Value"], milky_mul_clump.inputs[0])
+    links.new(milky_clump_c.outputs["Result"], milky_mul_clump.inputs[1])
+    # multiply_add: dust * 0.45 + structured_band
+    links.new(milky_dust_pow.outputs["Value"], milky_add_dust.inputs[0])
+    links.new(milky_mul_clump.outputs["Value"], milky_add_dust.inputs[2])
+
+    links.new(milky_add_dust.outputs["Value"], milky_mul_s.inputs[0])
     links.new(milky_str.outputs[0], milky_mul_s.inputs[1])
     links.new(milky_mul_s.outputs["Value"], milky_mul_h.inputs[0])
     links.new(horizon.outputs["Result"], milky_mul_h.inputs[1])
@@ -409,7 +501,16 @@ def wire_stars_nodes(
     links.new(fade.outputs[0], milky_mul_f.inputs[1])
     links.new(milky_mul_f.outputs["Value"], milky_cam.inputs[0])
     links.new(light_path.outputs["Is Camera Ray"], milky_cam.inputs[1])
-    links.new(milky_color.outputs["Color"], milky_bg.inputs["Color"])
+
+    # Warm core → cool edges via clump factor.
+    cmix_a = milky_cmix.inputs.get("A") or milky_cmix.inputs.get("A_Color") or milky_cmix.inputs[6]
+    cmix_b = milky_cmix.inputs.get("B") or milky_cmix.inputs.get("B_Color") or milky_cmix.inputs[7]
+    cmix_fac = milky_cmix.inputs.get("Factor") or milky_cmix.inputs[0]
+    links.new(milky_clump_c.outputs["Result"], cmix_fac)
+    links.new(milky_cool.outputs["Color"], cmix_a)
+    links.new(milky_color.outputs["Color"], cmix_b)
+    cmix_out = milky_cmix.outputs.get("Result_Color") or milky_cmix.outputs.get("Result")
+    links.new(cmix_out, milky_bg.inputs["Color"])
     links.new(milky_cam.outputs["Value"], milky_bg.inputs["Strength"])
     links.new(add_stars.outputs["Shader"], milky_add.inputs[0])
     links.new(milky_bg.outputs["Background"], milky_add.inputs[1])
