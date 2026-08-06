@@ -72,8 +72,8 @@ MOON_DISK_NAME = "OuroSkies Moon Disk"
 MOON_DISK_OWNED_KEY = "ouroskies_moon_disk"
 MOON_DISK_DISTANCE = 50.0
 MOON_ANGULAR_DIAMETER_DEG = 1.5
-# provisional: compete with Multiple Scattering + Exposure −3.
-MOON_DISK_EMISSION = 180.0
+# provisional: compete with Multiple Scattering + Exposure −3 without crushing texture.
+MOON_DISK_EMISSION = 15.0
 MOON_DISK_IMAGE = "moon_disk.png"
 
 # provisional: near Blender Multiple Scattering sun_size (~0.545°) and unity punch.
