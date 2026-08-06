@@ -22,7 +22,7 @@ def _moon_image() -> bpy.types.Image:
     path = _assets_dir() / name
     existing = bpy.data.images.get(name)
     if existing is not None:
-        # Drop stale packed/high-res copies so pulls pick up the new plate.
+        # Drop stale packed copies so pulls pick up the new plate.
         if tuple(existing.size) != (1080, 1080) or existing.filepath != str(path):
             bpy.data.images.remove(existing)
             existing = None
@@ -61,13 +61,19 @@ def _ensure_material() -> bpy.types.Material:
     if mat is None:
         mat = bpy.data.materials.new(mat_name)
     mat.use_nodes = True
-    # CLIP avoids EEVEE hashed-transparency holes against the World background.
-    mat.blend_method = "CLIP"
+    # Blender 5.2: OPAQUE/CLIP both coerce to HASHED; prefer blended alpha for
+    # a clean disk limb against the World.
+    if hasattr(mat, "surface_render_method"):
+        mat.surface_render_method = "BLENDED"
+    try:
+        mat.blend_method = "BLEND"
+    except TypeError:
+        pass
     if hasattr(mat, "alpha_threshold"):
-        mat.alpha_threshold = 0.2
-    if hasattr(mat, "shadow_method"):
-        mat.shadow_method = "NONE"
-    mat.use_backface_culling = True
+        mat.alpha_threshold = 0.05
+    if hasattr(mat, "use_transparent_shadow"):
+        mat.use_transparent_shadow = False
+    mat.use_backface_culling = False
     nt = mat.node_tree
     nt.nodes.clear()
     out = nt.nodes.new("ShaderNodeOutputMaterial")
@@ -98,7 +104,7 @@ def ensure_moon_disk(scene: bpy.types.Scene) -> bpy.types.Object:
         return existing
 
     mesh = bpy.data.meshes.new(defaults.MOON_DISK_NAME)
-    # Unit circle in XY; +Z faces the camera/origin after aim.
+    # Unit circle in XY; +Z is the face normal after aim.
     verts = [(0.0, 0.0, 0.0)]
     edges = []
     faces = []
@@ -109,10 +115,8 @@ def ensure_moon_disk(scene: bpy.types.Scene) -> bpy.types.Object:
     for i in range(segments):
         faces.append((0, 1 + i, 1 + ((i + 1) % segments)))
     mesh.from_pydata(verts, edges, faces)
-    # Simple planar UVs.
     mesh.uv_layers.new(name="UVMap")
     uv = mesh.uv_layers.active.data
-    # after from_pydata, loops exist
     for poly in mesh.polygons:
         for li in poly.loop_indices:
             vi = mesh.loops[li].vertex_index
@@ -177,28 +181,26 @@ def sync_moon_disk(
     angular = math.radians(max(0.05, float(settings.moon_size_deg)))
     radius = distance * math.tan(angular * 0.5)
 
-    obj.rotation_mode = "QUATERNION"
+    # Drop facing constraints — billboard toward the observer along -aim so we
+    # don't fight object scale / Track-To evaluation.
+    for c in list(obj.constraints):
+        obj.constraints.remove(c)
     if obj.parent is not None:
         obj.parent = None
+
+    obj.rotation_mode = "QUATERNION"
     obj.location = direction * distance
+    # +Z face toward scene origin (observer). Distance stays inside the usual
+    # default camera clip_end (100); viewport View clip does not affect Camera.
+    obj.rotation_quaternion = (-direction).to_track_quat("Z", "Y")
     obj.scale = (radius, radius, radius)
 
-    # Keep the textured face toward the active camera. A Track To constraint
-    # updates when the camera moves; origin-facing made offset cameras see
-    # the culled backface (invisible disk despite clip_end being fine).
-    for c in list(obj.constraints):
-        if c.name.startswith("OuroSkies Moon Face"):
-            obj.constraints.remove(c)
+    # Ensure the active camera can see the disk (View clip ≠ Camera clip_end).
     cam = scene.camera
-    if cam is not None:
-        track = obj.constraints.new("TRACK_TO")
-        track.name = "OuroSkies Moon Face"
-        track.target = cam
-        track.track_axis = "TRACK_Z"
-        track.up_axis = "UP_Y"
-    else:
-        toward_viewer = -direction
-        obj.rotation_quaternion = toward_viewer.to_track_quat("Z", "Y")
+    if cam is not None and cam.type == "CAMERA" and cam.data is not None:
+        need = distance * 1.25
+        if cam.data.clip_end < need:
+            cam.data.clip_end = need
 
     hide = visible_factor <= 0.001
     obj.hide_render = hide
@@ -209,8 +211,13 @@ def sync_moon_disk(
         obj.visible_shadow = False
     if hasattr(obj, "visible_volume_scatter"):
         obj.visible_volume_scatter = False
+    if hasattr(obj, "visible_glossy"):
+        obj.visible_glossy = False
+    if hasattr(obj, "visible_transmission"):
+        obj.visible_transmission = False
+    if hasattr(obj, "visible_diffuse"):
+        obj.visible_diffuse = True
 
-    # Rebuild material if an older HASHED version is still attached.
     if obj.data is not None:
         mat = _ensure_material()
         if obj.data.materials:
@@ -218,7 +225,6 @@ def sync_moon_disk(
         else:
             obj.data.materials.append(mat)
 
-    # Dim emission near the horizon.
     if obj.data is not None and obj.data.materials:
         mat = obj.data.materials[0]
         if mat is not None and mat.node_tree is not None:

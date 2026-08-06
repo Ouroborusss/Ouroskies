@@ -187,6 +187,10 @@ class OUROSKIES_PT_celestials(Panel):
                 text="Place/Date: real moon path (may be down at night)",
                 icon="INFO",
             )
+        layout.label(
+            text="Camera clip_end must reach the disk (View clip ≠ Camera)",
+            icon="INFO",
+        )
 
 
 class OUROSKIES_PT_eclipse(Panel):

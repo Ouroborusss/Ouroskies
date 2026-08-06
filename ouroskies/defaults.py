@@ -66,12 +66,13 @@ SUN_LAMP_ANGLE_RAD = 0.00918043  # ~0.526° — near solar angular diameter
 LAMP_HORIZON_FADE_DEG = 3.0
 WORLD_SUN_THRESHOLD_DEFAULT = 10.0
 
-# provisional: moon disk — close enough for default clip_end; emission fights Nishita HDR.
+# provisional: moon disk MUST sit inside default camera clip_end (100).
+# Viewport View clip ≠ camera clip — 280 was invisible in Camera view.
 MOON_DISK_NAME = "OuroSkies Moon Disk"
 MOON_DISK_OWNED_KEY = "ouroskies_moon_disk"
-MOON_DISK_DISTANCE = 280.0
+MOON_DISK_DISTANCE = 50.0
 MOON_ANGULAR_DIAMETER_DEG = 1.5
-# provisional: was 12 — invisible against Multiple Scattering + Exposure −3.
+# provisional: compete with Multiple Scattering + Exposure −3.
 MOON_DISK_EMISSION = 180.0
 MOON_DISK_IMAGE = "moon_disk.png"
 
@@ -104,15 +105,12 @@ STARS_HORIZON_ZERO_Z = 0.02
 STARS_USE_DAYLIGHT_FADE = False
 STARS_FADE_LOW_DEG = -12.0
 STARS_FADE_HIGH_DEG = 2.0
-# Milky band: artistic plane (not catalog); soft angular half-width (dot).
+# Milky band: soft plane (original look) with noisy edge breakup only.
 MILKY_PLANE_NORMAL = (0.35, 0.72, 0.60)
-MILKY_HALF_WIDTH = 0.22
-MILKY_STRENGTH = 0.85
-MILKY_COLOR = (0.78, 0.72, 0.68, 1.0)
-MILKY_COLOR_COOL = (0.55, 0.58, 0.72, 1.0)
-MILKY_NOISE_SCALE = 2.8
-MILKY_CLUMP_SCALE = 9.0
-MILKY_DUST_SCALE = 55.0
+MILKY_HALF_WIDTH = 0.18
+MILKY_STRENGTH = 0.55
+MILKY_COLOR = (0.82, 0.76, 0.70, 1.0)
+MILKY_NOISE_SCALE = 3.5
 
 WORLD_NAME = "OuroSkies"
 WORLD_OWNED_KEY = "ouroskies_owned"
@@ -156,8 +154,7 @@ NODE_MILKY_ABS = "OuroSkies Milky Abs"
 NODE_MILKY_NORMAL = "OuroSkies Milky Normal"
 NODE_MILKY_MAP = "OuroSkies Milky Map"
 NODE_MILKY_NOISE = "OuroSkies Milky Noise"
-NODE_MILKY_CLUMP = "OuroSkies Milky Clump"
-NODE_MILKY_DUST = "OuroSkies Milky Dust"
+NODE_MILKY_EDGE = "OuroSkies Milky Edge Mix"
 NODE_MILKY_MUL_N = "OuroSkies Milky Mul N"
 NODE_MILKY_STRENGTH = "OuroSkies Milky Strength"
 NODE_MILKY_MUL_S = "OuroSkies Milky Mul S"
@@ -165,8 +162,6 @@ NODE_MILKY_MUL_H = "OuroSkies Milky Mul H"
 NODE_MILKY_MUL_F = "OuroSkies Milky Mul F"
 NODE_MILKY_CAM_MUL = "OuroSkies Milky Cam Mul"
 NODE_MILKY_COLOR = "OuroSkies Milky Color"
-NODE_MILKY_COLOR_COOL = "OuroSkies Milky Color Cool"
-NODE_MILKY_COLOR_MIX = "OuroSkies Milky Color Mix"
 NODE_MILKY_BG = "OuroSkies Milky BG"
 NODE_MILKY_ADD = "OuroSkies Milky Add"
 # Binary (secondary) sun — camera-path World overlay
