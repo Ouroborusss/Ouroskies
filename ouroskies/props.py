@@ -342,6 +342,33 @@ class OuroSkiesSettings(PropertyGroup):
         update=_on_looks_update,
     )
 
+    stars_density: FloatProperty(
+        name="Star Density",
+        description="Procedural star field density (looks over catalog; no twinkle)",
+        default=defaults.STARS_DENSITY,
+        soft_min=0.0,
+        soft_max=2.0,
+        min=0.0,
+        max=10.0,
+        update=_on_looks_update,
+    )
+    stars_brightness: FloatProperty(
+        name="Star Brightness",
+        description="Procedural star / Milky band brightness (camera look only)",
+        default=defaults.STARS_BRIGHTNESS,
+        soft_min=0.0,
+        soft_max=2.0,
+        min=0.0,
+        max=10.0,
+        update=_on_looks_update,
+    )
+    stars_milky_band: BoolProperty(
+        name="Milky Band",
+        description="Soft artistic galactic band (fades before the horizon; not a catalog)",
+        default=defaults.STARS_MILKY_BAND,
+        update=_on_looks_update,
+    )
+
     has_sun_lamp: BoolProperty(
         name="Has Sun Lamp",
         description="OuroSkies sun lamp is present",

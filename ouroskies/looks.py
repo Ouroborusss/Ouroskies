@@ -91,6 +91,10 @@ def sync_looks_to_world(settings, owned: bpy.types.World) -> None:
         fade = airglow_daylight_fade(_current_sun_elevation_deg(settings))
         bg_glow.inputs["Strength"].default_value = settings.airglow_strength * fade
 
+    from . import stars
+
+    stars.sync_stars_to_world(settings, owned)
+
 
 def sync_looks(scene: bpy.types.Scene) -> None:
     """Push Looks props into the OuroSkies World graph and Exposure mirror."""

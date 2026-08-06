@@ -113,7 +113,13 @@ def sync_binary_sun_to_world(settings, owned: bpy.types.World) -> None:
     half = math.radians(max(0.01, float(settings.secondary_sun_size_deg)) * 0.5)
     _set_value_output(radius_node, half)
 
+    # Cull / soft-fade when the binary sits below the horizon (overlay has no
+    # Sky Texture airmass — otherwise it stays lit under the ground line).
+    from .lamps import _horizon_factor
+
+    elev_deg = math.degrees(math.asin(max(-1.0, min(1.0, float(secondary.z)))))
     strength = float(settings.secondary_sun_strength) if enabled else 0.0
+    strength *= _horizon_factor(elev_deg)
     _set_value_output(strength_node, max(0.0, strength))
 
 

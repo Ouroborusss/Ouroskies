@@ -86,6 +86,29 @@ SECONDARY_SUN_SIZE_DEG = 0.545
 SECONDARY_SUN_STRENGTH = 80.0
 SECONDARY_SUN_COLOR = (1.0, 0.82, 0.55, 1.0)
 
+# provisional: medium field (look C); Density 1 ≈ Voronoi scale below.
+STARS_DENSITY = 1.0
+STARS_BRIGHTNESS = 1.0
+STARS_MILKY_BAND = True
+# Voronoi scale at Density=1; bright layer uses a fraction of this.
+STARS_VORONOI_SCALE = 95.0
+STARS_BRIGHT_SCALE_FRAC = 0.22
+STARS_POWER = 14.0
+STARS_BRIGHT_POWER = 22.0
+STARS_COLOR = (0.92, 0.90, 0.88, 1.0)
+# Soft kill before horizon (view Z): full by ~7°, gone by ~1°.
+STARS_HORIZON_FULL_Z = 0.12
+STARS_HORIZON_ZERO_Z = 0.02
+# Daylight fade — full below nautical twilight-ish, gone just after sunrise.
+STARS_FADE_LOW_DEG = -12.0
+STARS_FADE_HIGH_DEG = 2.0
+# Milky band: artistic plane (not catalog); soft angular half-width (dot).
+MILKY_PLANE_NORMAL = (0.35, 0.72, 0.60)
+MILKY_HALF_WIDTH = 0.18
+MILKY_STRENGTH = 0.55
+MILKY_COLOR = (0.82, 0.76, 0.70, 1.0)
+MILKY_NOISE_SCALE = 3.5
+
 WORLD_NAME = "OuroSkies"
 WORLD_OWNED_KEY = "ouroskies_owned"
 NODE_SKY = "OuroSkies Sky"
@@ -99,6 +122,44 @@ NODE_AIRGLOW_COLOR = "OuroSkies Airglow Color"
 NODE_BG_AIRGLOW = "OuroSkies BG Airglow"
 NODE_ADD_AIRGLOW = "OuroSkies Add Airglow"
 NODE_OUTPUT = "OuroSkies Output"
+# Procedural stars + Milky band (camera-path overlay after airglow)
+NODE_STAR_GEO = "OuroSkies Star Geo"
+NODE_STAR_VIEW = "OuroSkies Star View"
+NODE_STAR_NORMALIZE = "OuroSkies Star Norm"
+NODE_STAR_VORONOI = "OuroSkies Star Voronoi"
+NODE_STAR_VORONOI_BRIGHT = "OuroSkies Star Voronoi Bright"
+NODE_STAR_SCALE = "OuroSkies Star Scale"
+NODE_STAR_SCALE_BRIGHT = "OuroSkies Star Scale Bright"
+NODE_STAR_POWER = "OuroSkies Star Power"
+NODE_STAR_POWER_BRIGHT = "OuroSkies Star Power Bright"
+NODE_STAR_INV = "OuroSkies Star Inv"
+NODE_STAR_INV_BRIGHT = "OuroSkies Star Inv Bright"
+NODE_STAR_ADD = "OuroSkies Star Layers"
+NODE_STAR_HORIZON = "OuroSkies Star Horizon"
+NODE_STAR_HORIZON_SEP = "OuroSkies Star Horizon Sep"
+NODE_STAR_FADE = "OuroSkies Star Fade"
+NODE_STAR_BRIGHTNESS = "OuroSkies Star Brightness"
+NODE_STAR_MUL_H = "OuroSkies Star Mul H"
+NODE_STAR_MUL_F = "OuroSkies Star Mul F"
+NODE_STAR_MUL_B = "OuroSkies Star Mul B"
+NODE_STAR_CAM_MUL = "OuroSkies Star Cam Mul"
+NODE_STAR_COLOR = "OuroSkies Star Color"
+NODE_STAR_BG = "OuroSkies Star BG"
+NODE_STAR_ADD_SHADER = "OuroSkies Star Add"
+NODE_MILKY_DOT = "OuroSkies Milky Dot"
+NODE_MILKY_ABS = "OuroSkies Milky Abs"
+NODE_MILKY_NORMAL = "OuroSkies Milky Normal"
+NODE_MILKY_MAP = "OuroSkies Milky Map"
+NODE_MILKY_NOISE = "OuroSkies Milky Noise"
+NODE_MILKY_MUL_N = "OuroSkies Milky Mul N"
+NODE_MILKY_STRENGTH = "OuroSkies Milky Strength"
+NODE_MILKY_MUL_S = "OuroSkies Milky Mul S"
+NODE_MILKY_MUL_H = "OuroSkies Milky Mul H"
+NODE_MILKY_MUL_F = "OuroSkies Milky Mul F"
+NODE_MILKY_CAM_MUL = "OuroSkies Milky Cam Mul"
+NODE_MILKY_COLOR = "OuroSkies Milky Color"
+NODE_MILKY_BG = "OuroSkies Milky BG"
+NODE_MILKY_ADD = "OuroSkies Milky Add"
 # Binary (secondary) sun — camera-path World overlay
 NODE_SEC_GEO = "OuroSkies Sec Geo"
 NODE_SEC_VIEW = "OuroSkies Sec View"

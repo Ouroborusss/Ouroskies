@@ -157,7 +157,7 @@ def rebuild_sky_graph(world: bpy.types.World, settings: bpy.types.PropertyGroup)
     links.new(bg_light.outputs["Background"], mix_cam.inputs[1])
     links.new(bg_cam.outputs["Background"], mix_cam.inputs[2])
 
-    from . import celestials
+    from . import celestials, stars
 
     # Binary sun: camera-look Background Add after sky mix (Strength = appearance).
     sky_with_binary = celestials.wire_binary_sun_nodes(
@@ -168,7 +168,13 @@ def rebuild_sky_graph(world: bpy.types.World, settings: bpy.types.PropertyGroup)
     links.new(sky_with_binary, add_glow.inputs[0])
     links.new(glow_color.outputs["Color"], bg_glow.inputs["Color"])
     links.new(bg_glow.outputs["Background"], add_glow.inputs[1])
-    links.new(add_glow.outputs["Shader"], output.inputs["Surface"])
+    # Stars + Milky after airglow (airglow sits behind the field).
+    sky_with_stars = stars.wire_stars_nodes(
+        node_tree,
+        light_path,
+        add_glow.outputs["Shader"],
+    )
+    links.new(sky_with_stars, output.inputs["Surface"])
 
     if hasattr(sky, "sun_disc"):
         sky.sun_disc = True
@@ -176,6 +182,7 @@ def rebuild_sky_graph(world: bpy.types.World, settings: bpy.types.PropertyGroup)
 
     looks.sync_looks_to_world(settings, world)
     celestials.sync_binary_sun_to_world(settings, world)
+    stars.sync_stars_to_world(settings, world)
 
 
 def _unique_world_name() -> str:

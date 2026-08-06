@@ -103,7 +103,11 @@ class OUROSKIES_PT_looks(Panel):
         layout.prop(settings, "airglow_tint", text="Tint")
 
         layout.separator()
-        layout.label(text="Stars — later", icon="INFO")
+        layout.label(text="Stars")
+        layout.prop(settings, "stars_density", text="Density")
+        layout.prop(settings, "stars_brightness", text="Brightness")
+        layout.prop(settings, "stars_milky_band", text="Milky Band")
+        layout.label(text="Fades with daylight · no twinkle", icon="INFO")
 
 
 class OUROSKIES_PT_celestials(Panel):
