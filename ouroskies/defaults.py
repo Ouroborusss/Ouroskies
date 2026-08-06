@@ -43,7 +43,7 @@ PA_SKY_STRENGTH = 1.0
 PA_WORLD_CONTRIBUTION = 1.0
 
 # provisional: modest cool green-grey night fill; fades -6°…+6° sun elev.
-AIRGLOW_STRENGTH = 0.03
+AIRGLOW_STRENGTH = 0.02
 AIRGLOW_TINT = (0.55, 0.65, 0.60, 1.0)
 AIRGLOW_FADE_LOW_DEG = -6.0
 AIRGLOW_FADE_HIGH_DEG = 6.0
@@ -90,7 +90,7 @@ SECONDARY_SUN_COLOR = (1.0, 0.82, 0.55, 1.0)
 
 # provisional: dense fine field (Density drives Voronoi scale); modest Brightness.
 STARS_DENSITY = 6.0
-STARS_BRIGHTNESS = 0.3
+STARS_BRIGHTNESS = 0.1
 STARS_MILKY_BAND = True
 # Voronoi scale at Density=1; bright layer uses a fraction of this.
 STARS_VORONOI_SCALE = 95.0
